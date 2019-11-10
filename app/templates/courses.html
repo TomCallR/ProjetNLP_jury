@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Liste des formations</h1>
+
+
+<table>
+    <thead>
+    <tr>
+        <th>Id</th>
+        <th>Intitulé</th>
+        <th>Date de début</th>
+        <th>Date de fin</th>
+        <th>Fichier de formulaires</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for course in courses %}
+    <tr>
+        <td>{{ course.id }}</td>
+        <td>{{ course.label }}</td>
+        <td>{{ course.startdate }}</td>
+        <td>{{ course.enddate }}</td>
+        <td>{{ course.spreadsheet }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<form method="post" action="{{ url_for('courses') }}">
+    <input type="radio" name="action" id="add" value="add"/>
+    <label for="add">Ajouter</label>
+    <fieldset>
+        <label for="label">Intitulé</label><br>
+        <input type="text" name="label" id="label"/><br>
+        <label for="startdate">Date de début</label><br>
+        <input type="date" name="startdate" id="startdate"/><br>
+        <label for="enddate">Date de fin</label><br>
+        <input type="date" name="enddate" id="enddate"/><br>
+        <label for="spreadsheet">Fichier de formulaires</label><br>
+        <input type="text" name="spreadsheet" id="spreadsheet"/>
+    </fieldset>
+    <input type="radio" name="action" id="delete" value="delete"/>
+    <label for="add">Supprimer</label>
+    <select name="course_id">
+        <option value=""></option>
+        {% for course in courses %}
+        <option value="{{ course.id }}">{{ course.id }} - {{ course.label }}</option>
+        {% endfor %}
+    </select>
+    <br>
+    <input type="submit" value="Valider"/>
+</form>
+
+{% endblock %}

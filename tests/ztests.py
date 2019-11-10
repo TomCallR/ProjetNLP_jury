@@ -4,17 +4,17 @@ import app
 
 from sqlalchemy.orm import sessionmaker
 
-from app.orm import Course
+from app.database.models import Course
 
-app.orm.Base.metadata.create_all(app.engine)
+app.db.models.Base.metadata.create_all(app.engine)
 
 Session = sessionmaker(bind=app.engine)
 session = Session()
 
-da = Course(label='Data',
+da = Course(label='Data Analyst',
             startdate=date(2019, 3, 18),
             enddate=date(2019, 12, 2),
-            spreadsheet='taratata')
+            spreadsheet='ProjetNLP')
 session.add(da)
 session.commit()
 

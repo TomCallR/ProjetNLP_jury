@@ -1,13 +1,18 @@
 <component name="ProjectDictionaryState">
   <dictionary name="Datanalyst">
     <words>
+      <w>answertype</w>
       <w>datanalyst</w>
       <w>enddate</w>
       <w>firstname</w>
+      <w>lastentrydate</w>
       <w>lastname</w>
+      <w>lastreaddate</w>
+      <w>privconf</w>
       <w>projetnlp</w>
       <w>pymysql</w>
       <w>sheetid</w>
+      <w>sheetlabel</w>
       <w>startdate</w>
       <w>tablename</w>
     </words>

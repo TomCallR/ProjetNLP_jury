@@ -1,4 +1,2 @@
-from app import app
-
-from app.orm import Course
+from app import app, db
 
