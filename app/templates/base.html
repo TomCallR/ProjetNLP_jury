@@ -3,37 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>Base</title>
-    <style type="text/css">
-        table {
-            border-collapse: collapse;
-        }
-        table th, td{
-            border: 1px solid black;
-        }
-
-    </style>
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+          crossorigin="anonymous">
     <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
     <script>
       $(function() {
         $( "#header0" ).prepend( "<span>" +
-            "<a href='/index'>Home</a>" +
-            "<a href='/dashboard'>Dashboard</a>" +
-            "<a href='/collect'>Collect</a>" +
-            "<a href='/courses'>Courses</a>" +
-            "<a href='/students'>Students</a>" +
-            "<a href='/legalese'>Legalese</a>" +
+            "<a class='btn-default' href='/index'>Home</a>" +
+            "<a class='btn-default' href='/dashboard'>Dashboard</a>" +
+            "<a class='btn-default' href='/collect'>Collect</a>" +
+            "<a class='btn-default' href='/courses'>Courses</a>" +
+            "<a class='btn-default' href='/students'>Students</a>" +
             "</span>" );
       });
 
+
     </script>
 </head>
-<body>
+<body class="container">
 <header id="header0"></header>
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}
+<ul>
     {% for message in messages %}
-    <emph>{{ message }}</emph>
+    <li>
+        <emph>{{ message }}</emph>
+    </li>
     {% endfor %}
 </ul>
 {% endif %}

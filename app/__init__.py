@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
-from private.privateconf import Config
+from private.privateconfig import Config
 
 app = Flask(import_name=__name__)
 app.config.from_object(Config)

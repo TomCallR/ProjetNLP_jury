@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Suppressiond'une formation</h1>
+
+<form method="post" action="" novalidate>
+    {{ form.hidden_tag() }}
+    {{ form.courseid.label }}<br>
+    {{ form.courseid }}<br>
+    {{ form.submit() }}
+</form>
+
+{% endblock %}

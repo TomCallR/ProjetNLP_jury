@@ -28,8 +28,8 @@ Arguments :
 * Ajoute une page de login
 * N'est nécessaire que dans le cas d'un BD non SQLite
 * Repousse la création de sqlalchemy.engine hors de l'initialisation
-* Entraîne un traitement différent de l'accès à l'API Google (par fichier credentials) et de l'accès à la BD,
-or c'est la même chose essentiellement
+* Entraîne un traitement différent de l'accès à l'API Google (par fichier
+ credentials) et de l'accès à la BD, or c'est la même chose essentiellement
 
 Conclusion :
 * Pas utilisé
@@ -37,10 +37,11 @@ Conclusion :
 ## Login students
 Arguments :
 * Juste une case à cocher dans le formulaire Google Form
-* Garantit l'unicité des réponses d'un étudiant et son identification (pas de problème de nom / prénom en double,
-ni surtout d'erreur de frappe)
+* Garantit l'unicité des réponses d'un étudiant et son identification 
+(pas de problème de nom / prénom en double, ni surtout d'erreur de frappe)
 * Négatif : tests plus complexes (créer des adresses mail gmail multiples ?)
-* TIP création d'adresses multiples sur le même compte : http://www.codestore.net/store.nsf/unid/BLOG-20111201-0411
+* TIP création d'adresses multiples sur le même compte : 
+http://www.codestore.net/store.nsf/unid/BLOG-20111201-0411
 
 Conclusion :
 * utilisation de ces logins
@@ -51,5 +52,5 @@ Conclusion :
 
 ## Problèmes
 
-* https://github.com/pallets/flask/issues/3327, solution lancer flask avec "set FLASK_DEBUG=1 && python -m flask run
-"
+* https://github.com/pallets/flask/issues/3327, solution lancer flask
+avec "set FLASK_DEBUG=1 && python -m flask run"
