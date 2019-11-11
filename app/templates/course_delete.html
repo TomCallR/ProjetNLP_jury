@@ -7,7 +7,10 @@
 <form method="post" action="" novalidate>
     {{ form.hidden_tag() }}
     {{ form.courseid.label }}<br>
-    {{ form.courseid }}<br>
+    {{ form.courseid }}
+    {% for error in form.courseid.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+    {% endfor %}<br>
     {{ form.submit() }}
 </form>
 

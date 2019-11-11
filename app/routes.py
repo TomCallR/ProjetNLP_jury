@@ -31,16 +31,16 @@ def courses():
 @app.route("/course/create", methods=["GET", "POST"])
 def course_create():
     form = CourseCreateForm()
-    # if form.validate_on_submit():
-    success, message = DbCourse.insert(
-        label=form.label.data,
-        startdate=form.startdate.data,
-        enddate=form.enddate.data,
-        spreadsheet=form.spreadsheet.data
-    )
-    flash(message)
-    if success:
-        return redirect(url_for("courses"))
+    if form.validate_on_submit():
+        success, message = DbCourse.insert(
+            label=form.label.data,
+            startdate=form.startdate.data,
+            enddate=form.enddate.data,
+            spreadsheet=form.spreadsheet.data
+        )
+        flash(message)
+        if success:
+            return redirect(url_for("courses"))
     return render_template("course_create.html", form=form)
 
 
@@ -50,12 +50,17 @@ def course_delete():
     form = CourseDeleteForm()
     # form.courseid.choices = [(course.id, course.label + " [" + course.startdate + " - " +
     #                           course.enddate + "]") for course in courses_list]
-    form.courseid.choices = [(course.id, course.label) for course in courses_list]
+    form.courseid.choices = []
+    for course in courses_list:
+        displaytext = f"{course.label} du {course.startdate} au " \
+                      f"{str(course.startdate)}, fichier {course.spreadsheet}"
+        form.courseid.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbCourse.delete(
-            courseid=request.form.get("course_id"))
+            courseid=form.courseid.data)
         flash(message)
-        return redirect("/courses")
+        if success:
+            return redirect("/courses")
     return render_template("course_delete.html", form=form)
 
 

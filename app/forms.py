@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, SubmitField, SelectField, RadioField
-from wtforms.validators import DataRequired, ValidationError
+from wtforms import StringField, DateField, SubmitField, SelectField
+from wtforms.validators import DataRequired
 
 from app.database.models import Course
 
@@ -27,27 +27,12 @@ class CourseCreateForm(FlaskForm):
     )
     submit = SubmitField("Ajouter")
 
-    # @staticmethod
-    # def validate_label(self, label):
-    #     course = Course.query.filter_by(label=label.data).first()
-    #     if course is not None:
-    #         raise ValidationError('Erreur : Une formation avec le même intitulé existe déjà')
-    #
-    # def validate_enddate(self, enddate):
-    #     if self.startdate and not enddate.data > self.startdate.data:
-    #         raise ValidationError('Erreur : La date de début est postérieure à la date de fin')
-    #
-    # @staticmethod
-    # def validate_spreadsheet(self, spreadsheet):
-    #     sheet = Course.query.filter_by(spreadsheet=spreadsheet.data).first()
-    #     if sheet is not None:
-    #         raise ValidationError("Erreur : Une formation avec le même fichier associé existe déjà")
-
 
 class CourseDeleteForm(FlaskForm):
 
     courseid = SelectField(
         label="Formation",
-        coerce=int
+        # coerce=int,
+        validators=[DataRequired(message="Choisissez une formation")]
     )
     submit = SubmitField("Supprimer")
