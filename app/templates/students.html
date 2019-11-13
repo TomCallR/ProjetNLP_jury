@@ -1,4 +1,32 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+<h1>Liste des étudiants</h1>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Id</th>
+        <th>Nom de famille</th>
+        <th>Prénom</th>
+        <th>Adresse mail</th>
+        <th>Formation</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for student in students %}
+    <tr>
+        <td>{{ student.id }}</td>
+        <td>{{ student.lastname }}</td>
+        <td>{{ student.firstname }}</td>
+        <td>{{ student.mail }}</td>
+        <td>{{ student.course.label }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<a class="btn btn-primary" href="{{ url_for('student_create') }}">Ajouter</a>
+<a class="btn btn-primary" href="{{ url_for('student_delete') }}">Supprimer</a>
+
 {% endblock %}

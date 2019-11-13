@@ -2,13 +2,13 @@
 
 {% block content %}
 
-<h1>Suppression d'une formation</h1>
+<h1>Suppression d'un étudiant</h1>
 
 <form method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.course.label }}<br>
-    {{ form.course }}
-    {% for error in form.course.errors %}
+    {{ form.student.label }}<br>
+    {{ form.student }}
+    {% for error in form.student.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
     {{ form.submit() }}

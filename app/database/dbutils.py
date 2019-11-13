@@ -8,9 +8,9 @@ from app.database.models import Course, Student, Form, Question, Answer
 class DbCourse:
 
     @classmethod
-    def insert(cls, label: str, startdate: date, enddate: date, spreadsheet: str):
+    def insert(cls, label: str, startdate: date, enddate: date, spreadsheet: str) -> (bool, str):
         # check fields all filled
-        success = (label != "")
+        success = (label is not None and label != "")
         message = "Erreur : L'intitulé n'est pas renseigné" if not success else ""
         if success:
             success = (startdate is not None)
@@ -18,8 +18,8 @@ class DbCourse:
         if success:
             success = (enddate is not None)
             message = "Erreur : La date de fin n'est pas renseignée" if not success else ""
-        if success:
-            success = (spreadsheet != "")
+        if success:                                                     # TODO pas forcément au début
+            success = (spreadsheet is not None and spreadsheet != "")
             message = "Erreur : Le fichier des formulaires n'est pas renseigné" if not success else ""
         # check dates coherent
         if success:
@@ -45,7 +45,7 @@ class DbCourse:
         return success, message
 
     @classmethod
-    def delete(cls, courseid: str):
+    def delete(cls, courseid: str) -> (bool, str):
         # check fields all filled
         success = (courseid is not None and courseid != "")
         message = "Erreur : La formation n'est pas renseignée" if not success else ""
@@ -57,13 +57,14 @@ class DbCourse:
             success = (coursetodel is not None)
             message = "Erreur : Formation inexistante" if not success else ""
         if success:
-            success = (coursetodel.students is not None)
-            message = "Erreur : Des étudiants sont rattachés cette formation" if not success else ""
+            print(coursetodel.students)
+            success = ((coursetodel.students is None) or (len(coursetodel.students) == 0))
+            message = "Erreur : Des étudiants sont rattachés à cette formation" if not success else ""
         if success:
-            success = (coursetodel.questions is not None)
+            success = ((coursetodel.questions is None) or (len(coursetodel.questions) == 0))
             message = "Erreur : Des questions sont liées à cette formation" if not success else ""
         if success:
-            success = (coursetodel.forms is not None)
+            success = ((coursetodel.forms is None) or (len(coursetodel.forms) == 0))
             message = "Erreur : Des formulaires sont liés à cette formation" if not success else ""
         if success:
             try:
@@ -75,3 +76,64 @@ class DbCourse:
                 success = False
                 message = str(ex)
         return success, message
+
+
+class DbStudent:
+
+    @classmethod
+    def insert(cls, lastname: str, firstname: str, mail: str, course_id: str) -> (bool, str):
+        # check fields all filled
+        success = ((lastname is not None) and (lastname != ""))
+        message = "Erreur : Le nom de famille n'est pas renseigné" if not success else ""
+        if success:
+            success = ((firstname is not None) and (firstname != ""))
+            message = "Erreur : Le prénom n'est pas renseigné" if not success else ""
+        if success:
+            success = ((mail is not None) and (mail != ""))
+            message = "Erreur : L'adresse mail n'est pas renseignée" if not success else ""
+        if success:
+            success = ((course_id is not None) and (course_id != ""))
+            message = "Erreur : La formation n'est pas renseignée" if not success else ""
+        # check neither label nor spreadsheet already exists in Courses
+        if success:
+            success = (Student.query.filter_by(mail=mail).count() == 0)
+            message = "Erreur : Un(e) étudiant(e) avec le même mail existe déjà" if not success else ""
+        # TODO check mail coherent
+        if success:
+            try:
+                newstudent = Student(lastname=lastname, firstname=firstname, mail=mail, course_id=course_id)
+                db.session.add(newstudent)
+                db.session.commit()
+                message = f"Succès : Etudiant(e) {newstudent.lastname} {newstudent.firstname} ajouté(e)"
+            except Exception as ex:
+                db.session.rollback()
+                success = False
+                message = str(ex)
+        return success, message
+
+    @classmethod
+    def delete(cls, studentid: str) -> (bool, str):
+        # check field filled and no dependent data exist
+        success = ((studentid is not None) and (studentid != ""))
+        message = "Erreur : L'étudiant(e) n'est pas renseigné(e)" if not success else ""
+        if success:
+            success = studentid.isnumeric()
+            message = "Erreur : L'id d'étudiant(e) n'est pas numérique" if not success else ""
+        if success:
+            studenttodel = Student.query.get(int(studentid))
+            success = (studenttodel is not None)
+            message = "Erreur : Etudiant(e) inexistant(e)" if not success else ""
+        if success:
+            success = ((studenttodel.answers is None) or (len(studenttodel.answers) == 0))
+            message = "Erreur : Des formulaires sont rattachés à cet(te) étudiant(e)" if not success else ""
+        if success:
+            try:
+                db.session.delete(studenttodel)
+                db.session.commit()
+                message = f"Succès: Etudiant(e) {studenttodel.label} supprimé(e)"
+            except Exception as ex:
+                db.session.rollback()
+                success = False
+                message = str(ex)
+        return success, message
+

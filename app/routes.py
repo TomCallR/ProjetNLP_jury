@@ -1,9 +1,9 @@
 from flask import flash, render_template, request, url_for, redirect
 
 from app import app
-from app.database.dbutils import DbCourse
-from app.database.models import Course
-from app.forms import CourseCreateForm, CourseDeleteForm
+from app.database.dbutils import DbCourse, DbStudent
+from app.database.models import Course, Student
+from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm
 
 
 @app.route("/")
@@ -48,22 +48,63 @@ def course_create():
 def course_delete():
     courses_list = Course.query.all()
     form = CourseDeleteForm()
-    # form.courseid.choices = [(course.id, course.label + " [" + course.startdate + " - " +
-    #                           course.enddate + "]") for course in courses_list]
-    form.courseid.choices = []
+    form.course.choices = []
     for course in courses_list:
         displaytext = f"{course.label} du {course.startdate} au " \
                       f"{str(course.startdate)}, fichier {course.spreadsheet}"
-        form.courseid.choices.append((str(course.id), displaytext))
+        form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbCourse.delete(
-            courseid=form.courseid.data)
+            courseid=form.course.data)
         flash(message)
         if success:
             return redirect("/courses")
     return render_template("course_delete.html", form=form)
 
 
-@app.route("/students")
+@app.route("/students", methods=["GET"])
 def students():
-    return render_template("students.html")
+    students_list = Student.query.all()
+    return render_template("students.html", students=students_list)
+
+
+@app.route("/student/create", methods=["GET", "POST"])
+def student_create():
+    courses_list = Course.query.all()
+    form = StudentCreateForm()
+    form.course.choices = []
+    for course in courses_list:
+        displaytext = f"{course.label} du {course.startdate} au " \
+                      f"{str(course.startdate)}, fichier {course.spreadsheet}"
+        form.course.choices.append((str(course.id), displaytext))
+    if form.validate_on_submit():
+        success, message = DbStudent.insert(
+            lastname=form.lastname.data,
+            firstname=form.firstname.data,
+            mail=form.mail.data,
+            course_id=form.course.data
+        )
+        flash(message)
+        if success:
+            return redirect(url_for("students"))
+    return render_template("student_create.html", form=form)
+
+
+@app.route("/student/delete", methods=["GET", "POST"])
+def student_delete():
+    students_list = Student.query.order_by(Student.course.label,
+                                           Student.lastname,
+                                           Student.firstname).all()
+    form = StudentDeleteForm()
+    form.student.choices = []
+    for student in students_list:
+        displaytext = f"{student.lastname} {str(student.firstname)}, " \
+                      f"mail {student.mail}, en formation {student.course.label}"
+        form.student.choices.append((str(student.id), displaytext))
+    if form.validate_on_submit():
+        success, message = DbStudent.delete(
+            studentid=form.student.data)
+        flash(message)
+        if success:
+            return redirect("/students")
+    return render_template("student_delete.html", form=form)

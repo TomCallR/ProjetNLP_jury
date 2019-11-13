@@ -9,7 +9,7 @@ class Course(db.Model):
     label = db.Column(db.String(80), unique=True, nullable=False)
     startdate = db.Column(db.Date, nullable=False)
     enddate = db.Column(db.Date, nullable=False)
-    spreadsheet = db.Column(db.String(120), unique=True, nullable=False)
+    spreadsheet = db.Column(db.String(120), unique=True, nullable=True)
 
     students = db.relationship('Student', back_populates='course')
     questions = db.relationship('Question', back_populates='course')
@@ -27,7 +27,7 @@ class Student(db.Model):
     lastname = db.Column(db.String(80), nullable=False)
     firstname = db.Column(db.String(80), nullable=False)
     mail = db.Column(db.String(80), unique=True, nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'))
+    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='students')
     answers = db.relationship('Answer', back_populates='student')
@@ -47,7 +47,7 @@ class Form(db.Model):
     sheetlabel = db.Column(db.String(80))
     lastentrydate = db.Column(db.Date)
     lastreaddate = db.Column(db.Date)
-    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'))
+    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='forms')
     answers = db.relationship('Answer', back_populates='form')
@@ -65,7 +65,7 @@ class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     answertype = db.Column(db.Integer)
     text = db.Column(db.String(200), unique=True, nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'))
+    course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='questions')
     answers = db.relationship('Answer', back_populates='question')
@@ -81,9 +81,9 @@ class Answer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False)
     text = db.Column(db.String(1000))
-    form_id = db.Column(db.Integer, db.ForeignKey('Forms.id'))
-    student_id = db.Column(db.Integer, db.ForeignKey('Students.id'))
-    question_id = db.Column(db.Integer, db.ForeignKey('Questions.id'))
+    form_id = db.Column(db.Integer, db.ForeignKey('Forms.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('Students.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('Questions.id'), nullable=False)
 
     student = db.relationship('Student', back_populates='answers')
     question = db.relationship('Question', back_populates='answers')

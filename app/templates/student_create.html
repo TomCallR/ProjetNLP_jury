@@ -2,28 +2,28 @@
 
 {% block content %}
 
-<h1>Ajout d'une formation</h1>
+<h1>Ajout d'un étudiant</h1>
 
 <form method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.label.label }}<br>
-    {{ form.label }}
-    {% for error in form.label.errors %}
+    {{ form.lastname.label }}<br>
+    {{ form.lastname }}
+    {% for error in form.lastname.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
-    {{ form.startdate.label }}<br>
-    {{ form.startdate }}
-    {% for error in form.startdate.errors %}
+    {{ form.firstname.label }}<br>
+    {{ form.firstname }}
+    {% for error in form.firstname.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
-    {{ form.enddate.label }}<br>
-    {{ form.enddate }}
-    {% for error in form.enddate.errors %}
+    {{ form.mail.label }}<br>
+    {{ form.mail }}
+    {% for error in form.mail.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
-    {{ form.spreadsheet.label }}<br>
-    {{ form.spreadsheet }}
-    {% for error in form.spreadsheet.errors %}
+    {{ form.course.label }}<br>
+    {{ form.course }}
+    {% for error in form.course.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
     {{ form.submit() }}
