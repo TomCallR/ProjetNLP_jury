@@ -137,3 +137,14 @@ class DbStudent:
                 message = str(ex)
         return success, message
 
+
+class DbForm:
+
+    @classmethod
+    def update(cls, startdate: str) -> (bool, str):
+        # check field filled
+        success = ((startdate is not None) and (startdate != ""))
+        message = "Erreur : La date de départ n'est pas renseignée" if not success else ""
+        # TODO faire autres contrôles
+        return success, message
+

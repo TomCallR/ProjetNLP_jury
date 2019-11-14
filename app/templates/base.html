@@ -10,15 +10,15 @@
     <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
     <script>
       $(function() {
-        $( "#header0" ).prepend( "<span>" +
-            "<a class='btn btn-primary' href='/index'>Home</a>" +
-            "<a class='btn btn-primary' href='/dashboard'>Dashboard</a>" +
-            "<a class='btn btn-primary' href='/collect'>Collect</a>" +
-            "<a class='btn btn-primary' href='/courses'>Courses</a>" +
-            "<a class='btn btn-primary' href='/students'>Students</a>" +
-            "</span>" );
+        $( "#header0" ).prepend( "<div class='container-fluid bg-dark'>" +
+            "<ul class='nav justify-content-around'>" +
+            "<li><a class='btn btn-primary' href='/index'>Accueil</a></li>" +
+            "<li><a class='btn btn-primary' href='/dashboard'>Dashboard</a></li>" +
+            "<li><a class='btn btn-primary' href='/courses'>Formations</a></li>" +
+            "<li><a class='btn btn-primary' href='/students'>Etudiants</a></li>" +
+            "<li><a class='btn btn-primary' href='/gforms'>Formulaires</a></li>" +
+            "</ul></div>" );
       });
-
 
     </script>
 </head>

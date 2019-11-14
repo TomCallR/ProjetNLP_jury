@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Liste des formulaires</h1>
+
+<p>Chaque élément de la liste correspond à un onglet d'un Google spreadsheet</p>
+<ul>Ne sont pas prises en compte :
+    <li>les formations terminées depuis plus de 35 jours</li>
+    <li>les formations non commencées</li>
+    <li>les formations sans indication de fichier</li>
+</ul>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Id</th>
+        <th>Formation</th>
+        <th>Fichier</th>
+        <th>Id d'onglet</th>
+        <th>Onglet</th>
+        <th>Date de dernière saisie</th>
+        <th>Date de dernière lecture</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for gform in gforms %}
+    <tr>
+        <td>{{ gform.id }}</td>
+        <td>{{ gform.course.label }}</td>
+        <td>{{ gform.course.spreadsheet }}</td>
+        <td>{{ gform.sheetid }}</td>
+        <td>{{ gform.sheetlabel }}</td>
+        <td>{{ gform.lastentrydate }}</td>
+        <td>{{ gform.lastreaddate }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h1>Mise à jour des formulaires</h1>
+<form method="post" action="" novalidate>
+    {{ form.hidden_tag() }}
+    {{ form.startdate.label }}<br>
+    {{ form.startdate }}
+    {% for error in form.startdate.errors %}
+        <span style="color: red;">[{{ error }}]</span>
+    {% endfor %}<br>
+    {{ form.submit() }}
+</form>
+
+{% endblock %}

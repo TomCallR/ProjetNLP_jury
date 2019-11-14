@@ -68,3 +68,12 @@ class StudentDeleteForm(FlaskForm):
         validators=[DataRequired(message="Sélectionnez un étudiant")]
     )
     submit = SubmitField("Supprimer")
+
+
+class GformsUpdate(FlaskForm):
+
+    startdate = DateField(
+        label="Date de départ",
+        validators=[DataRequired(message="Saisissez une date")]
+    )
+    submit = SubmitField("Mettre à jour")
