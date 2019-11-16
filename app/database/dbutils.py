@@ -1,5 +1,7 @@
-from datetime import date
-from operator import or_
+from datetime import date, datetime, MINYEAR, timedelta
+
+from sqlalchemy import func
+from sqlalchemy.orm import Query
 
 from app import db
 from app.database.models import Course, Student, Form, Question, Answer
@@ -141,10 +143,75 @@ class DbStudent:
 class DbForm:
 
     @classmethod
-    def update(cls, startdate: str) -> (bool, str):
-        # check field filled
-        success = ((startdate is not None) and (startdate != ""))
-        message = "Erreur : La date de départ n'est pas renseignée" if not success else ""
-        # TODO faire autres contrôles
-        return success, message
+    def queryspreadsheets(cls, minenddate: date) -> Query:
+        today = datetime.today()
+        xminenddate = date(MINYEAR, 1, 1)
+        if minenddate is not None:
+            xminenddate = minenddate
+        # subquery aggregating data from Form
+        groupedform = db.session.query(
+            Form.course_id.label("course_id"),
+            func.count(Form.id).label("sheetcount"),
+            func.max(Form.lastentrydate).label("lastentrydate"),
+            func.max(Form.lastreaddate).label("lastreaddate")
+        ).group_by(Form.course_id).subquery()
+        # query joining Course and subquery
+        res = db.session.query(
+            Course,
+            groupedform,
+            ((Course.spreadsheet != "") and (Course.enddate >= xminenddate)).label("check"),
+            ((Course.enddate >= xminenddate) + (Course.startdate > today)).label("order")
+        ).outerjoin(
+            groupedform,
+            Course.id == groupedform.c.course_id
+        ).order_by(
+            Course.startdate
+        )
+        return res
+
+    @classmethod
+    def querysheets(cls) -> Query:
+        deltadays = timedelta(days=15.0)
+        # subquery answers
+        groupedanswer = db.session.query(
+            Answer.form_id.label("form_id"),
+            func.count(Answer.id).label("answercount")
+        ).group_by(Answer.form_id).subquery()
+        # subquery Form
+        joinedform = db.session.query(
+            Form,
+            groupedanswer
+        ).outerjoin(
+            groupedanswer,
+            Form.id == groupedanswer.form_id
+        ).subquery()
+        # query joining Course, subquery joinedform
+        res = db.session.query(
+            Course,
+            joinedform,
+            ((joinedform.c.lastreaddate - joinedform.c.lastentrydate) <= deltadays).label("check")
+        ).outerjoin(
+            joinedform,
+            Course.id == joinedform.c.course_id
+        ).order_by(
+            Course.startdate,
+            joinedform.c.id
+        )
+        # res = db.session.query(
+        #     Course,
+        #     Form,
+        #     groupedanswer,
+        #     ((Form.lastreaddate - Form.lastentrydate) <= deltadays).label("check"),
+        # ).outerjoin(
+        #     Form,
+        #     Course.id == Form.course_id
+        # ).outerjoin(
+        #     groupedanswer,
+        #     Form.id == groupedanswer.form_id
+        # ).order_by(
+        #     Course.startdate,
+        #     Form.id
+        # )
+        return res
+
 

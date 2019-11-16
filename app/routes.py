@@ -5,7 +5,8 @@ from flask import flash, render_template, request, url_for, redirect
 from app import app
 from app.database.dbutils import DbCourse, DbStudent, DbForm
 from app.database.models import Course, Student, Form
-from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, GformsUpdate
+from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
+    SheetsSelect
 
 
 @app.route("/")
@@ -107,29 +108,25 @@ def student_delete():
     return render_template("student_delete.html", form=form)
 
 
-@app.route("/gforms")
-def gforms():
-    today = datetime.date.today()
-    anteriorday = today - datetime.timedelta(days=35.0)
-    gforms_list = Form.query.filter(Form.course.has(Course.enddate >= anteriorday))
-    gforms_list = gforms_list.filter(Form.course.has(Course.startdate <= today))
-    gforms_list = gforms_list.filter(Form.course.has(Course.spreadsheet.__ne__(None)))
-    gforms_list = gforms_list.order_by(Form.course_id, Form.lastentrydate).all()
-    form = GformsUpdate()
-
+@app.route("/spreadsheets")
+def spreadsheets():
+    # TODO améliorer apparence de col check
+    # TODO améliorer apparence si None data
+    form = SpreadsheetSelect()
+    spreadsheets_list = DbForm.queryspreadsheets(minenddate=form.enddate.data)
     if form.validate_on_submit():
-        success, message = DbForm.update(
-            startdate=form.startdate.data)
+        # save selection for next screen
+        return redirect(url_for("sheets"))
+    return render_template("spreadsheets.html", courses=spreadsheets_list, form=form)
+
+
+@app.route("/sheets")
+def sheets():
+    form = SheetsSelect()
+    sheets_list = DbForm.querysheets()
+    if form.validate_on_submit():
+        success, message = DbForm.update()
         flash(message)
         if success:
-            return redirect("/students")
-    return render_template("gforms.html", gforms=gforms_list, form=form)
-
-## POUR CONTINUER : relire, pour les formations avec les 3 critères ci-dessus :
-## les onglets nouveaux, les onglets pourlesquels lastendtrydate >= lastreaddate - 35 jours
-## + lire aussi pour les formations dont un jour au moins est postérieur ou égal à la date saisie
-
-
-# @app.route("/gforms/old")
-# def gforms_old():
-#     return render_template("gforms_old.html")
+            return redirect(url_for("sheets"))
+    return render_template("sheets.html")

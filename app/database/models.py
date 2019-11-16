@@ -9,7 +9,7 @@ class Course(db.Model):
     label = db.Column(db.String(80), unique=True, nullable=False)
     startdate = db.Column(db.Date, nullable=False)
     enddate = db.Column(db.Date, nullable=False)
-    spreadsheet = db.Column(db.String(120), unique=True, nullable=True)
+    spreadsheet = db.Column(db.String(120), unique=True, nullable=False)        # TODO allow blank string
 
     students = db.relationship('Student', back_populates='course')
     questions = db.relationship('Question', back_populates='course')
@@ -44,9 +44,9 @@ class Form(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     sheetid = db.Column(db.String(80), nullable=False)
-    sheetlabel = db.Column(db.String(80))
-    lastentrydate = db.Column(db.Date)
-    lastreaddate = db.Column(db.Date)
+    sheetlabel = db.Column(db.String(80), nullable=False)
+    lastentrydate = db.Column(db.Date, nullable=False)
+    lastreaddate = db.Column(db.Date, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='forms')
@@ -63,7 +63,7 @@ class Question(db.Model):
     __tablename__ = 'Questions'
 
     id = db.Column(db.Integer, primary_key=True)
-    answertype = db.Column(db.Integer)
+    answertype = db.Column(db.Integer, nullable=False)
     text = db.Column(db.String(200), unique=True, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
@@ -80,7 +80,7 @@ class Answer(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False)
-    text = db.Column(db.String(1000))
+    text = db.Column(db.String(1000), nullable=False)
     form_id = db.Column(db.Integer, db.ForeignKey('Forms.id'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('Students.id'), nullable=False)
     question_id = db.Column(db.Integer, db.ForeignKey('Questions.id'), nullable=False)

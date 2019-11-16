@@ -1,8 +1,17 @@
+import datetime
+
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, SubmitField, SelectField
-from wtforms.validators import DataRequired, Email
+from wtforms import StringField, DateField, SubmitField, SelectField, SelectMultipleField, IntegerField
+from wtforms.validators import DataRequired, Email, NumberRange
+from wtforms.widgets import ListWidget, CheckboxInput
 
 from app.database.models import Course
+
+
+# # https://snipnyet.com/adierebel/59f46bff77da1511c3503532/multiple-checkbox-field-using-wtforms-with-flask-wtf/
+# class MultiCheckboxField(SelectMultipleField):
+#     widget = ListWidget(prefix_label=False)
+#     option_widget = CheckboxInput()
 
 
 class CourseCreateForm(FlaskForm):
@@ -70,10 +79,22 @@ class StudentDeleteForm(FlaskForm):
     submit = SubmitField("Supprimer")
 
 
-class GformsUpdate(FlaskForm):
+class SpreadsheetSelect(FlaskForm):
 
-    startdate = DateField(
-        label="Date de départ",
+    enddate = DateField(
+        label="Fin de formation postérieure au",
+        default=(datetime.date.today() - datetime.timedelta(days=35.0)),
         validators=[DataRequired(message="Saisissez une date")]
     )
-    submit = SubmitField("Mettre à jour")
+    submit = SubmitField("Sélectionner")
+
+
+class SheetsSelect(FlaskForm):
+
+    daysnoupdate = IntegerField(
+        label="Nombre de jours sans modification",
+        default=15,
+        validators=[DataRequired(message="Saisissez un nombre de jours"),
+                    NumberRange(min=7)]
+    )
+    Submit = SubmitField("Mettre à jour")

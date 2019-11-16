@@ -50,7 +50,19 @@ Conclusion :
 
 ???
 
+## Présentation
+
+* utilisation flask avec bootstrap : https://www.youtube.com/watch?v=S7ZLiUabaEo
+Pb un peu vieux
+* alternative : bootsrap avec Flask "manuellement" :
+https://john.soban.ski/pass-bootstrap-html-attributes-to-flask-wtforms.html
+
 ## Problèmes
 
 * https://github.com/pallets/flask/issues/3327, solution lancer flask
 avec "set FLASK_DEBUG=1 && python -m flask run"
+* complexes queries, solution see : 
+https://blog.miguelgrinberg.com/post/nested-queries-with-sqlalchemy-orm
+
+## Evolutions possibles
+* Archivage

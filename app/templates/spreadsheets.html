@@ -1,0 +1,54 @@
+{% from "macros.html" import render_field, render_submit %}
+
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Liste des fichiers</h1>
+
+<p>Sont sélectionnées les formations en cours après le {{ form.enddate }} et
+    qui ne débutent pas dans le futur</p>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Sél.</th>
+        <th>Id</th>
+        <th>Formation</th>
+        <th>Date début</th>
+        <th>Date fin</th>
+        <th>Fichier</th>
+        <th>Nb onglets</th>
+        <th>Dern. saisie</th>
+        <th>Dern. lecture</th>
+
+    </tr>
+    </thead>
+    <tbody>
+    {% for course in courses %}
+<!--    TODO use order to separate old, current, new courses-->
+    <tr>
+        <td>{{ course.check }}</td>
+        <td>{{ course.Course.id }}</td>
+        <td>{{ course.Course.label }}</td>
+        <td>{{ course.Course.startdate }}</td>
+        <td>{{ course.Course.enddate }}</td>
+        <td>{{ course.Course.spreadsheet }}</td>
+        <td>{{ course.sheetcount }}</td>
+        <td>{{ course.lastentrydate }}</td>
+        <td>{{ course.lastreaddate }}</td>
+
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<form class="form" method="post" action="" novalidate>
+    {{ form.hidden_tag() }}
+    <d1>
+        {{ render_field(form.enddate, class='form-control') }}
+    </d1>
+    {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
+</form>
+
+{% endblock %}
