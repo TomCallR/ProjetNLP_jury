@@ -1,3 +1,5 @@
+{% from "macros.html" import render_field, render_submit %}
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -26,7 +28,8 @@
     {% for error in form.spreadsheet.errors %}
         <span style="color: red;">[{{ error }}]</span>
     {% endfor %}<br>
-    {{ form.submit() }}
+<!--    {{ form.submit() }}-->
+    {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>
 
 {% endblock %}

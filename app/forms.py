@@ -91,10 +91,10 @@ class SpreadsheetSelect(FlaskForm):
 
 class SheetsSelect(FlaskForm):
 
-    daysnoupdate = IntegerField(
+    daysnochange = IntegerField(
         label="Nombre de jours sans modification",
         default=15,
         validators=[DataRequired(message="Saisissez un nombre de jours"),
                     NumberRange(min=7)]
     )
-    Submit = SubmitField("Mettre à jour")
+    submit = SubmitField("Mettre à jour")

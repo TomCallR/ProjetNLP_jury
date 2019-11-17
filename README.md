@@ -66,3 +66,7 @@ https://blog.miguelgrinberg.com/post/nested-queries-with-sqlalchemy-orm
 
 ## Evolutions possibles
 * Archivage
+
+## TODO
+* explorer client.py
+* explorer spreadsheet class : get spreadsheet id (exists !) dans gpread\models

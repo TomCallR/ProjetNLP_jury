@@ -1,4 +1,4 @@
-{% from "macros.html" import render_field %}
+{% from "macros.html" import render_field, render_submit %}
 
 {% extends "base.html" %}
 
@@ -6,9 +6,9 @@
 
 <h1>Liste des onglets</h1>
 
-<p>Chaque élément de la liste correspond à un onglet d'un Google spreadsheet</p>
-<p>Sont pris en compte les onglets pour lesquels la date de dernière modification est
-    antérieure de plus de 15 jours à la date de dernière lecture (mise à jour)</p>
+<p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation</p>
+<p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
+    antérieure de {{ form.daysnochange.data }} jours au plus à la date de dernière lecture (mise à jour)</p>
 
 <table class="table">
     <thead>
@@ -17,10 +17,10 @@
         <th>Id</th>
         <th>Formation</th>
         <th>Fichier</th>
-        <th>Onglets</th>
-        <th>Nb réponses</th>
+        <th>Onglet</th>
         <th>Dern. saisie</th>
         <th>Dern. lecture</th>
+        <th>Nb réponses</th>
     </tr>
     </thead>
     <tbody>
@@ -31,9 +31,9 @@
         <td>{{ gform.Course.label }}</td>
         <td>{{ gform.Course.spreadsheet }}</td>
         <td>{{ gform.Form.label }}</td>
-        <td>{{ gform.answercount }}</td>
         <td>{{ gform.Form.lastentrydate }}</td>
         <td>{{ gform.Form.lastreaddate }}</td>
+        <td>{{ gform.answercount }}</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -41,11 +41,7 @@
 
 <form class="form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-<!--    <d1>-->
-<!--        {{ render_field(form.enddate, class='form-control') }}-->
-<!--    </d1>-->
-    <p><input type=submit class='btn btn-warning btn-block'>
-
+    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
 {% endblock %}

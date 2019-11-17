@@ -63,7 +63,7 @@ class Question(db.Model):
     __tablename__ = 'Questions'
 
     id = db.Column(db.Integer, primary_key=True)
-    answertype = db.Column(db.Integer, nullable=False)
+    isint = db.Column(db.String(1), nullable=False)      # Y for integer, N for text
     text = db.Column(db.String(200), unique=True, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
@@ -75,19 +75,29 @@ class Question(db.Model):
 
 
 # Answer : one answer per student per form (=> per week) per question
+# TODO : change ' to " everywhere and messages with f""
 class Answer(db.Model):
-    __tablename__ = 'Answers'
+    __tablename__ = "Answers"
 
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False)
     text = db.Column(db.String(1000), nullable=False)
-    form_id = db.Column(db.Integer, db.ForeignKey('Forms.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('Students.id'), nullable=False)
-    question_id = db.Column(db.Integer, db.ForeignKey('Questions.id'), nullable=False)
+    form_id = db.Column(db.Integer, db.ForeignKey("Forms.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("Students.id"), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey("Questions.id"), nullable=False)
 
-    student = db.relationship('Student', back_populates='answers')
-    question = db.relationship('Question', back_populates='answers')
-    form = db.relationship('Form', back_populates='answers')
+    student = db.relationship("Student", back_populates="answers")
+    question = db.relationship("Question", back_populates="answers")
+    form = db.relationship("Form", back_populates="answers")
 
     def __repr__(self):
-        return '<Answer {} {} {}>'.format(self.id, self.horodb.Dateur, self.reponse)
+        return f"<Answer {self.id} {self.timestamp} {self.text}>"
+
+
+# Parameter : stores user preferred values for some parameters, no link to other classes
+class Parameter(db.Model):
+    __tablename__ = "Parameters"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    value = db.Column(db.String(1000), nullable=True)
