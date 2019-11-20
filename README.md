@@ -63,6 +63,8 @@ https://john.soban.ski/pass-bootstrap-html-attributes-to-flask-wtforms.html
 avec "set FLASK_DEBUG=1 && python -m flask run"
 * complexes queries, solution see : 
 https://blog.miguelgrinberg.com/post/nested-queries-with-sqlalchemy-orm
+* comment trouver des éléments simplement dans une liste d'objets obtenus d'une
+requête : faire un dict avec en clé le critère de recherche
 
 ## Evolutions possibles
 * Archivage
@@ -70,3 +72,6 @@ https://blog.miguelgrinberg.com/post/nested-queries-with-sqlalchemy-orm
 ## TODO
 * explorer client.py
 * explorer spreadsheet class : get spreadsheet id (exists !) dans gpread\models
+
+## Erreurs fréquentes :
+* mettre methods=["GET", "POST"]

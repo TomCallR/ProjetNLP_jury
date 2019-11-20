@@ -14,6 +14,11 @@ from app.database.models import Course
 #     option_widget = CheckboxInput()
 
 
+class InitForm(FlaskForm):
+
+    submit = SubmitField("Générer la base")
+
+
 class CourseCreateForm(FlaskForm):
 
     label = StringField(

@@ -3,9 +3,9 @@ from typing import List
 
 import gspread
 from sqlalchemy import func
-from sqlalchemy.orm import Query, aliased
+from sqlalchemy.orm import Query
 
-from app import db
+from app import db, app
 from app.api.apiutils import ApiFile
 from app.database.models import Course, Student, Form, Question, Answer, Parameter
 
@@ -16,7 +16,13 @@ class DbParam:
     def getparam(cls, name: str) -> str:
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
         if param is None:
-            res = None
+            if hasattr(app.Config, name):
+                res = app.Config.name
+                success, message = cls.setparam(name=name, value=str(res))
+                if not success:
+                    pass  # flash ?
+            else:
+                res = None
         else:
             res = param.value
         return res
@@ -27,7 +33,7 @@ class DbParam:
         message = ""
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
         if param is None:
-            newparam = Parameter(name=name, value=value)
+            newparam = Parameter(name=name, value=str(value))
             try:
                 db.session.add(newparam)
                 db.session.commit()
@@ -69,7 +75,7 @@ class DbCourse:
         if success:
             success = (enddate is not None)
             message = "Erreur : La date de fin n'est pas renseignée" if not success else ""
-        if success:                                                     # TODO pas forcément au début
+        if success:  # TODO pas forcément au début
             success = (spreadsheet is not None and spreadsheet != "")
             message = "Erreur : Le fichier des formulaires n'est pas renseigné" if not success else ""
         # check dates coherent
@@ -195,7 +201,7 @@ class DbForm:
     def createfromsheet(cls, courseid: int, wsheet: gspread.models.Worksheet) -> Form:
         newform = Form(sheetid=wsheet.id,
                        sheetlabel=wsheet.title,
-                       lastentrydate=datetime.today(),          # default before reading answers
+                       lastentrydate=datetime.today(),  # default before reading answers
                        lastreaddate=datetime.today(),
                        course_id=courseid)
         return newform
@@ -217,8 +223,8 @@ class DbForm:
         res = db.session.query(
             Course,
             groupedform,
-            ((Course.spreadsheet != "") and (Course.enddate >= xminenddate)).label("check"),
-            ((Course.enddate >= xminenddate) + (Course.startdate > today)).label("order")
+            ((Course.spreadsheet != "") and (Course.enddate >= xminenddate) and (Course.startdate <= today)).label("check"),
+            ((Course.enddate >= xminenddate) + (Course.startdate > today)).label("order")  # TODO not working
         ).outerjoin(
             groupedform,
             Course.id == groupedform.c.course_id
@@ -242,7 +248,7 @@ class DbForm:
             Answer,
             Form.id == Answer.form_id
         ).group_by(
-            Course.id,                  # in case a course has no file => should not appear anyway, so theoretical
+            Course.id,  # in case a course has no file => should not appear anyway, so theoretical
             Form.id
         ).filter(
             Course.spreadsheet != "",
@@ -253,6 +259,25 @@ class DbForm:
             Form.id
         )
         return res
+
+    @classmethod
+    def updatedates(cls, gform: Form) -> (bool, str):
+        success = True
+        message = ""
+        lastentrydate = date(year=MINYEAR, month=1, day=1)
+        for answer in gform.answers:
+            if answer.timestamp.date > lastentrydate:
+                lastentrydate = answer.timestamp.date
+        gform.lastentrydate = lastentrydate
+        gform.lastreaddate = date.today()
+        try:
+            db.session.commit()
+        except Exception as ex:
+            success = False
+            message = f"Erreur : Mise à jour du formulaire {gform.sheetlabel} impossible " \
+                      f"(formation {gform.course.label})"
+            db.session.rollback()
+        return success, message
 
     @classmethod
     def update(cls, minenddate: date, daysnochange: int) -> dict:
@@ -272,15 +297,18 @@ class DbForm:
                 if not success:
                     messages.append(message)
                 else:
-                    gformsdict = dict([(gform.sheetid, gform) for gform in course.forms])
+                    gformsdict = {gform.sheetid: gform for gform in course.forms}
                     wsheets = file.worksheets()
                     for wsheet in wsheets:
-                        wsheetdata = wsheet.get_all_records()
+                        if wsheet.id in gformsdict:
+                            gform = gformsdict[wsheet.id]
+                            if gform.lastentrydate < gform.lastreaddate - timedelta(days=daysnochange):
+                                continue
+                        wsheetdata = wsheet.get_all_records()  # TODO improve around here
                         if wsheet.id not in gformsdict:
                             if (wsheetdata is not None) and (wsheetdata != {}):
                                 newgform = cls.createfromsheet(courseid=course.id, wsheet=wsheet)
                                 db.session.add(newgform)
-                        # TODO si form sans mouvemment depuis 15 jours continue
                         newquestions = DbQuestion.createfromsheet(course=course,
                                                                   wsheetdata=wsheetdata)
                         for question in newquestions:
@@ -294,22 +322,25 @@ class DbForm:
                             success = False
                             message = f"Erreur : Ajout du formulaire ou des questions impossible " \
                                       f"(formation {course.label}, formulaire {wsheet.title})"
+                            db.session.rollback()
                         messages.append(message)
                         if success:
                             gform = gformsdict[wsheet.id] if wsheet.id in gformsdict else newgform
-                            DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
-
-                        # newgform.answers.append(newanswers)
-                        # db.session.commit()
-                        # TODO cas gform non None
-
-
-                #       read answers and save if new ones
-                #       update Form with lastentrydate
-                #   in any case update lastreaddate
-            # sheets_list =cls.querysheets(minenddate=minenddate,
-            #                              daysnochange=daysnochange)
-        return messages
+                            success, msges = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
+                            messages = messages + msges
+                        try:
+                            db.session.commit()
+                            success = True
+                        except Exception as ex:
+                            success = False
+                            message = f"Erreur : Ajout/mise à jour des réponses impossible " \
+                                      f"(formation {course.label}, formulaire {wsheet.title})"
+                            messages.append(messages)
+                        if success:
+                            success, message = cls.updatedates(gform=Form)
+                            if not success:
+                                messages = messages + [message]
+        return success, messages
 
 
 class DbQuestion:
@@ -337,70 +368,69 @@ class DbQuestion:
 class DbAnswer:
 
     @classmethod
+    def gettimestampheader(cls, wsheetdata: dict) -> str:
+        header = "Horodateur"
+        if wsheetdata is None:
+            header = None
+        elif wsheetdata == {}:
+            header = None
+        elif header not in wsheetdata[0]:
+            header = None
+        return header
+
+    @classmethod
+    def getmailheader(cls, wsheetdata: dict) -> str:
+        header = "Adresse e-mail"
+        if wsheetdata is None:
+            header = None
+        elif wsheetdata == {}:
+            header = None
+        elif header not in wsheetdata[0]:
+            header = None
+        return header
+
+    @classmethod
+    def updatefromrow(cls, gform: Form, row: dict, tsheader: str, mailheader: str,
+                      studentsdict: dict, questionsdict: dict, answersdict: dict) -> (bool, str):
+        timestamp = datetime.strptime(row[tsheader].strip(), "%d/%m/%Y %H:%M:%S")  # TODO securiser
+        mail = row[mailheader].strip()
+        success = (mail in studentsdict)
+        message = f"Erreur : Mail {mail} inconnu dans le fichier {gform.course.spreadsheet}, " \
+                  f"onglet {gform.sheetlabel}, réponse ignorée" if not success else ""
+        if success:
+            studentid = studentsdict[mail].id
+            for header, value in row.items():
+                if header not in (tsheader, mailheader):
+                    text = str(value).strip()
+                    questionid = questionsdict[text].id
+                    if (studentid, questionid) in answersdict:
+                        with answersdict[(studentid, questionid)] as answer:
+                            answer.timestamp = timestamp
+                            answer.text = text
+                    else:
+                        newanswer = Answer(timestamp=timestamp, text=text, form_id=gform.id,
+                                           student_id=studentid, question_id=questionid)
+                        db.session.add(answer)
+        return success, message
+
+    @classmethod
     def updatefromsheet(cls, gform: Form, wsheetdata: dict) -> List[Answer]:
+        success = True
+        message = ""
         messages = []
-        newanswers = []
-        updatedanswers = []
-        if (gform is not None) and (wsheetdata is not None) and (wsheetdata != {}):
+        tsheader = cls.gettimestampheader(wsheetdata=wsheetdata)
+        mailheader = cls.getmailheader(wsheetdata=wsheetdata)
+        if tsheader is None or mailheader is None:
+            pass  # TODO
+        elif gform is not None:
             course = gform.course
-            studentsdict = dict([(student.mail.strip(), student.id) for student in course.students])
-            questionsdict = dict([(question.text.strip(), question.id) for question in course.questions])
-            answersdict = dict([((answer.student_id, answer.question_id), answer.text.strip())
-                                for answer in gform.answers])
+            studentsdict = {student.mail.strip(): student for student in course.students}
+            questionsdict = {question.text.strip(): question for question in course.questions}
+            answersdict = {(answer.student_id, answer.question_id): answer for answer in gform.answers}
             for index, row in enumerate(wsheetdata):
-                answers_list = []
-                studentmail = None
-                timestamp = None
-                for header, value in row.items():
-                    if header.strip() == "Horodateur":
-                        timestamp = datetime.strptime(value.strip(), "%d/%m/%Y %H:%M:%S")
-                    elif header.strip() == "Adresse e-mail":
-                        studentmail = value.strip()
-                    else:
-                        answers_list.append((questionsdict[header.strip()], value))
-                if studentmail is None:
-                    success = False
-                    message = f"Erreur : Etudiant(e) non défini(e) dans le fichier {course.spreadsheet}, " \
-                              f"onglet {gform.sheetlabel}, ligne {index + 1}, réponse ignorée"
+                success, message = cls.updatefromrow(gform=gform, row=row, tsheader=tsheader,
+                                                     mailheader=mailheader, studentsdict=studentsdict,
+                                                     questionsdict=questionsdict, answersdict=answersdict)
+                if not success:
                     messages.append(message)
-                elif timestamp is None:
-                    success = False
-                    message = f"Erreur : Absence d'horodatage dans le fichier {course.spreadsheet}, " \
-                              f"onglet {gform.sheetlabel}, ligne {index + 1}, réponse ignorée"
-                    messages.append(message)
-                if success:
-                    if studentmail not in studentsdict:
-                        success = False
-                        message = f"Erreur : Etudiant(e) {studentmail} inconnu(e) dans la formation {course.label}, " \
-                                  f"fichier {course.spreadsheet}, onglet {gform.sheetlabel}, ligne {index + 1}, " \
-                                  f"réponse ignorée"
-                    else:
-                        studentid = studentsdict[studentmail]
-                        for answer in answers_list:
-                            key = (studentid, answer[0])
-                            if key in answersdict:
-                                if answersdict[key] != answer[1]:
-                                    updatedanswers.append(Answer(               # TODO que faire pour un update des answers (clé  à préciser)
-                                        timestamp=timestamp,
-                                        text=answer[1].strip(),
-                                        form_id=gform.id,
-                                        student_id=studentid,
-                                        question_id=answer[0]
-                                    ))
-                            else:
-                                newanswers.append(Answer(
-                                    timestamp=timestamp,
-                                    text=answer[1].strip(),
-                                    form_id=gform.id,
-                                    student_id=studentid,
-                                    question_id=answer[0]
-                                ))
-        return success, messages, newanswers, updatedanswers
-
-
-
-
-
-
-
-
+        return success, messages

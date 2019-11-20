@@ -2,19 +2,28 @@ import datetime
 
 from flask import flash, render_template, request, url_for, redirect
 
-from app import app
+from app import app, db
 from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam
 from app.database.models import Course, Student, Form
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
-    SheetsSelect
+    SheetsSelect, InitForm
 
-globalSpreadsheetSelectForm: SpreadsheetSelect = None
+# globalSpreadsheetSelectForm: SpreadsheetSelect = None     # TODO delete
 
 
-@app.route("/")
-@app.route("/index")
+@app.route("/", methods=["GET", "POST"])
+@app.route("/index", methods=["GET", "POST"])
 def index():
-    return render_template("index.html")
+    form = InitForm()               # TODO make generate conditional on existence
+    if form.validate_on_submit():
+        try:
+            db.create_all()
+            message = f"Succès : La base a été générée"
+        except Exception as ex:
+            message = f"Erreur : Impossible de générer la base. Exception :\n{ex}"
+        flash(message)
+        return redirect(url_for("dashboard"))
+    return render_template("index.html", form=form)
 
 
 @app.route("/dashboard")
@@ -115,12 +124,6 @@ def spreadsheets():
     # TODO améliorer apparence de col check
     # TODO améliorer apparence si None data
     maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
-    if maxdelta is None:
-        maxdelta = "35"
-        success, message = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
-                                            value=maxdelta)
-        if not success:
-            flash(message)
     form = SpreadsheetSelect()
     minenddate = datetime.date.today() - datetime.timedelta(days=int(maxdelta))
     form.enddate.data = minenddate
@@ -156,9 +159,11 @@ def sheets():
     sheets_list = DbForm.querysheets(minenddate=minenddate,
                                      daysnochange=form.daysnochange.data)
     if form.validate_on_submit():
-        success, message = DbForm.update(minenddate=minenddate,
-                                         daysnochange=form.daysnochange.data)
-        flash(message)
+        success, messages = DbForm.update(minenddate=minenddate,
+                                          daysnochange=form.daysnochange.data)
+        if not success:
+            for message in messages:
+                flash(message)
         if success:
             return redirect(url_for("sheets"))
     return render_template("sheets.html", gforms=sheets_list, form=form)

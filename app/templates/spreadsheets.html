@@ -6,7 +6,7 @@
 
 <h1>Liste des fichiers</h1>
 
-<p>Sont sélectionnées les formations en cours après le {{ form.enddate.data }} et
+<p>Dans cette liste, seules sont sélectionnées les formations en cours après le {{ form.enddate.data }} et
     qui ne débutent pas dans le futur</p>
 
 <table class="table">
@@ -26,7 +26,7 @@
     </thead>
     <tbody>
     {% for course in courses %}
-<!--    TODO use order to separate old, current, new courses-->
+    <!--    TODO use order to separate old, current, new courses-->
     <tr>
         <td>{{ course.check }}</td>
         <td>{{ course.Course.id }}</td>
@@ -37,17 +37,16 @@
         <td>{{ course.sheetcount }}</td>
         <td>{{ course.lastentrydate }}</td>
         <td>{{ course.lastreaddate }}</td>
-
     </tr>
     {% endfor %}
     </tbody>
 </table>
 
-<form class="form" method="post" action="" novalidate>
+<form action="" class="form" method="post" novalidate>
     {{ form.hidden_tag() }}
-    <d1>
+    <!--    <d1>-->
         {{ render_field(form.enddate, class='form-control') }}
-    </d1>
+    <!--    </d1>-->
     {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>
 
