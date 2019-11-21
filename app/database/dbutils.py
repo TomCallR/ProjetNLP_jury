@@ -1,8 +1,8 @@
 from datetime import date, datetime, MINYEAR, timedelta
-from typing import List
+from typing import List, Union
 
 import gspread
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from sqlalchemy.orm import Query
 
 from app import db, app
@@ -16,7 +16,7 @@ class DbParam:
     def getparam(cls, name: str) -> str:
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
         if param is None:
-            if hasattr(app.Config, name):
+            if hasattr(app.config, name):
                 res = app.Config.name
                 success, message = cls.setparam(name=name, value=str(res))
                 if not success:
@@ -28,7 +28,7 @@ class DbParam:
         return res
 
     @classmethod
-    def setparam(cls, name: str, value) -> (bool, str):
+    def setparam(cls, name: str, value: Union[int, str]) -> (bool, str):
         success = True
         message = ""
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
@@ -42,9 +42,8 @@ class DbParam:
                 success = False
                 message = f"Erreur : Impossible d'ajouter le paramètre {name}"
         else:
-            param.value = value
+            param.value = str(value)
             try:
-                db.session.update(param)
                 db.session.commit()
             except Exception as ex:
                 db.session.rollback()
@@ -209,26 +208,28 @@ class DbForm:
     @classmethod
     def queryspreadsheets(cls, minenddate: date) -> Query:
         today = datetime.today()
-        xminenddate = date(MINYEAR, 1, 1)
-        if minenddate is not None:
-            xminenddate = minenddate
-        # subquery aggregating data from Form
-        groupedform = db.session.query(
+        xminenddate = date(MINYEAR, 1, 1) if minenddate is None else minenddate
+        # subquery Form aggregating data
+        formsubquery = db.session.query(
             Form.course_id.label("course_id"),
             func.count(Form.id).label("sheetcount"),
             func.max(Form.lastentrydate).label("lastentrydate"),
             func.max(Form.lastreaddate).label("lastreaddate")
-        ).group_by(Form.course_id).subquery()
-        # query joining Course and subquery
+        ).group_by(
+            Form.course_id
+        ).subquery()
+        # join with Course
         res = db.session.query(
             Course,
-            groupedform,
-            ((Course.spreadsheet != "") and (Course.enddate >= xminenddate) and (Course.startdate <= today)).label("check"),
-            ((Course.enddate >= xminenddate) + (Course.startdate > today)).label("order")  # TODO not working
+            formsubquery,
+            (and_(Course.spreadsheet != "",
+                  Course.enddate > xminenddate,
+                  Course.startdate <= today)).label("check")
         ).outerjoin(
-            groupedform,
-            Course.id == groupedform.c.course_id
+            formsubquery,
+            Course.id == formsubquery.c.course_id
         ).order_by(
+            ((Course.enddate > xminenddate) + (Course.startdate > today)),
             Course.startdate
         )
         return res
@@ -248,7 +249,7 @@ class DbForm:
             Answer,
             Form.id == Answer.form_id
         ).group_by(
-            Course.id,  # in case a course has no file => should not appear anyway, so theoretical
+            Course.id,
             Form.id
         ).filter(
             Course.spreadsheet != "",

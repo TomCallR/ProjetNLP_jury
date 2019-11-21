@@ -65,6 +65,9 @@ avec "set FLASK_DEBUG=1 && python -m flask run"
 https://blog.miguelgrinberg.com/post/nested-queries-with-sqlalchemy-orm
 * comment trouver des éléments simplement dans une liste d'objets obtenus d'une
 requête : faire un dict avec en clé le critère de recherche
+* formulaires : champs = class variables donc ne pas essayer d'initialiser par
+paramètre : les variables classe ne doivent pas être manipulées par des instances (cf doc python
+https://docs.python.org/2/tutorial/classes.html)
 
 ## Evolutions possibles
 * Archivage

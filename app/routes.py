@@ -1,20 +1,18 @@
-import datetime
+from datetime import timedelta, date, MINYEAR
 
-from flask import flash, render_template, request, url_for, redirect
+from flask import flash, render_template, url_for, redirect
 
 from app import app, db
 from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam
-from app.database.models import Course, Student, Form
+from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm
-
-# globalSpreadsheetSelectForm: SpreadsheetSelect = None     # TODO delete
 
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/index", methods=["GET", "POST"])
 def index():
-    form = InitForm()               # TODO make generate conditional on existence
+    form = InitForm()  # TODO make generate conditional on existence
     if form.validate_on_submit():
         try:
             db.create_all()
@@ -123,47 +121,38 @@ def student_delete():
 def spreadsheets():
     # TODO améliorer apparence de col check
     # TODO améliorer apparence si None data
-    maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
     form = SpreadsheetSelect()
-    minenddate = datetime.date.today() - datetime.timedelta(days=int(maxdelta))
-    form.enddate.data = minenddate
-    spreadsheets_list = DbForm.queryspreadsheets(minenddate=form.enddate.data)
     if form.validate_on_submit():
-        if form.enddate.data != minenddate:
-            newmaxdelta = datetime.timedelta(days=abs(datetime.today() - form.enddate.data))
-            success, message = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
-                                                value=newmaxdelta)
-            if not success:
-                flash(message)
+        newmaxdelta = (date.today() - form.enddate.data)
+        success, message = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
+                                            value=str(newmaxdelta.days))
         return redirect(url_for("sheets"))
+    else:
+        maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+        minenddate = date.today() - timedelta(days=int(maxdelta))
+        form.enddate.data = minenddate
+        spreadsheets_list = DbForm.queryspreadsheets(minenddate=form.enddate.data)
     return render_template("spreadsheets.html", courses=spreadsheets_list, form=form)
 
 
 @app.route("/sheets", methods=["GET", "POST"])
 def sheets():
-    minenddate = datetime.date(datetime.MINYEAR, 1, 1)
-    maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
-    if maxdelta is not None:
-        minenddate = datetime.date.today() - datetime.timedelta(days=int(maxdelta))
-    daysnochange = 15
-    dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
-    if dbdaysnochange is not None:
-        daysnochange = int(dbdaysnochange)
-    else:
-        success, message = DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",
-                                            value=str(daysnochange))
-        if not success:
-            flash(message)
     form = SheetsSelect()
-    form.daysnochange.data = daysnochange
-    sheets_list = DbForm.querysheets(minenddate=minenddate,
-                                     daysnochange=form.daysnochange.data)
+    maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+    minenddate = date.today() - timedelta(days=int(maxdelta))
     if form.validate_on_submit():
         success, messages = DbForm.update(minenddate=minenddate,
                                           daysnochange=form.daysnochange.data)
-        if not success:
-            for message in messages:
-                flash(message)
-        if success:
-            return redirect(url_for("sheets"))
+        for message in messages:
+            flash(message)
+        success, message = DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",      #TODO s'assurer que success est bon
+                                            value=str(form.daysnochange.data))
+        return redirect(url_for("sheets"))
+    else:
+        dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
+        daysnochange = int(dbdaysnochange)
+        form.daysnochange.data = daysnochange
+        sheets_list = DbForm.querysheets(minenddate=minenddate,
+                                         daysnochange=form.daysnochange.data)
     return render_template("sheets.html", gforms=sheets_list, form=form)
+#TODO pb les onglets inconnus en base ne sont pas listés

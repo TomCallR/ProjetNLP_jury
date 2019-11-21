@@ -4,11 +4,13 @@
 
 {% block content %}
 
-<h1>Liste des onglets</h1>
+<h1>Liste des onglets connus en base de données</h1>
 
 <p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation</p>
 <p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
-    antérieure de {{ form.daysnochange.data }} jours au plus à la date de dernière lecture (mise à jour)</p>
+    antérieure de {{ form.daysnochange.data }} jours au plus à la date de dernière lecture
+    (i.e. date de mise à jour)</p>
+<p>Tous les onglets nouveaux non listés ici seront lus et les réponses intégrées en base de données</p>
 
 <table class="table">
     <thead>
@@ -26,22 +28,36 @@
     <tbody>
     {% for gform in gforms %}
     <tr>
-        <td>{{ gform.check }}</td>
+        {% if gform.Form.sheetid == "" %}
+            <td>{{ gform.check }}</td>
+        {% else %}
+            <td>-</td>
+        {% endif %}
         <td>{{ gform.Course.id }}</td>
         <td>{{ gform.Course.label }}</td>
         <td>{{ gform.Course.spreadsheet }}</td>
-        <td>{{ gform.Form.label }}</td>
-        <td>{{ gform.Form.lastentrydate }}</td>
-        <td>{{ gform.Form.lastreaddate }}</td>
-        <td>{{ gform.answercount }}</td>
+        {% if gform.Form.sheetid == "" %}
+            <td>{{ gform.Form.label }}</td>
+            <td>{{ gform.Form.lastentrydate }}</td>
+            <td>{{ gform.Form.lastreaddate }}</td>
+            <td>{{ gform.answercount }}</td>
+        {% else %}
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+        {% endif %}
     </tr>
     {% endfor %}
     </tbody>
 </table>
 
-<form class="form" method="post" action="" novalidate>
+<form action="" class="form" method="post" novalidate>
     {{ form.hidden_tag() }}
+    {{ render_field(form.daysnochange, class='form-control') }}
     {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
+
+<p>Cette page existe pour permettre de mettre à jour des onglets anciens au besoin</p>
 
 {% endblock %}
