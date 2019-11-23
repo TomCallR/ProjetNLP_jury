@@ -75,6 +75,9 @@ https://docs.python.org/2/tutorial/classes.html)
 ## TODO
 * explorer client.py
 * explorer spreadsheet class : get spreadsheet id (exists !) dans gpread\models
+* Création de la base : elle peut exister mais le serveur n'être pas connecté
+* suppression en masse d'étudiants oou d'autres choses ? (pas sûr)
+* archivage
 
 ## Erreurs fréquentes :
 * mettre methods=["GET", "POST"]

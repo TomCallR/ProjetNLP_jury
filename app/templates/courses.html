@@ -19,8 +19,8 @@
     <tr>
         <td>{{ course.id }}</td>
         <td>{{ course.label }}</td>
-        <td>{{ course.startdate }}</td>
-        <td>{{ course.enddate }}</td>
+        <td>{{ course.startdate.date() }}</td>
+        <td>{{ course.enddate.date() }}</td>
         <td>{{ course.spreadsheet }}</td>
     </tr>
     {% endfor %}

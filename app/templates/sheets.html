@@ -8,7 +8,7 @@
 
 <p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation</p>
 <p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
-    antérieure de {{ form.daysnochange.data }} jours au plus à la date de dernière lecture
+    antérieure de <strong>{{ form.daysnochange.data }}</strong> jours au plus à la date de dernière lecture
     (i.e. date de mise à jour)</p>
 <p>Tous les onglets nouveaux non listés ici seront lus et les réponses intégrées en base de données</p>
 
@@ -29,23 +29,30 @@
     {% for gform in gforms %}
     <tr>
         {% if gform.Form.sheetid == "" %}
-            <td>{{ gform.check }}</td>
-        {% else %}
             <td>-</td>
+        {% else %}
+            <td>{{ gform.check }}</td>
         {% endif %}
         <td>{{ gform.Course.id }}</td>
         <td>{{ gform.Course.label }}</td>
-        <td>{{ gform.Course.spreadsheet }}</td>
-        {% if gform.Form.sheetid == "" %}
-            <td>{{ gform.Form.label }}</td>
-            <td>{{ gform.Form.lastentrydate }}</td>
-            <td>{{ gform.Form.lastreaddate }}</td>
-            <td>{{ gform.answercount }}</td>
+        {% if gform.Course.spreadsheet == "" %}
+            <td>-</td>
         {% else %}
+            <td>{{ gform.Course.spreadsheet }}</td>
+        {% endif %}
+        {% if gform.Form.sheetid == "" %}
+            <td>-</td>
+        {% else %}
+            <td>{{ gform.Form.sheetlabel }}</td>
+        {% endif %}
+        {% if gform.Form is defined %}
             <td>-</td>
             <td>-</td>
             <td>-</td>
-            <td>-</td>
+        {% else %}
+            <td>{{ gform.Form.lastentrydt.date() }}</td>
+            <td>{{ gform.Form.lastreaddt.date() }}</td>
+            <td>{{ gform.answercount }}</td>
         {% endif %}
     </tr>
     {% endfor %}

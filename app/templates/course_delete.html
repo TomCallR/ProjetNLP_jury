@@ -1,3 +1,5 @@
+{% from "macros.html" import render_field, render_submit %}
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -6,12 +8,8 @@
 
 <form method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.course.label }}<br>
-    {{ form.course }}
-    {% for error in form.course.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.submit() }}
+    {{ render_field(form.course, class='form-control') }}
+    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
 {% endblock %}

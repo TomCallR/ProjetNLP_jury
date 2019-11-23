@@ -6,29 +6,12 @@
 
 <h1>Ajout d'une formation</h1>
 
-<form method="post" action="" novalidate>
+<form class= "form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.label.label }}<br>
-    {{ form.label }}
-    {% for error in form.label.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.startdate.label }}<br>
-    {{ form.startdate }}
-    {% for error in form.startdate.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.enddate.label }}<br>
-    {{ form.enddate }}
-    {% for error in form.enddate.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.spreadsheet.label }}<br>
-    {{ form.spreadsheet }}
-    {% for error in form.spreadsheet.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-<!--    {{ form.submit() }}-->
+    {{ render_field(form.label, class='form-control') }}
+    {{ render_field(form.startdate, class='form-control') }}
+    {{ render_field(form.enddate, class='form-control') }}
+    {{ render_field(form.spreadsheet, class='form-control') }}
     {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>
 

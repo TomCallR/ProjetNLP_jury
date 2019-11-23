@@ -1,0 +1,16 @@
+{% from "macros.html" import render_submit %}
+
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Génération de la base</h1>
+
+<p>La base de données indiquée dans le fichier de configuration n'existe pas ou est vide de toute table</p>
+
+<form class="form" method="post" action="" novalidate>
+    {{ form.hidden_tag() }}
+    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
+</form>
+
+{% endblock %}

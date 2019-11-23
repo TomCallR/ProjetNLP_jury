@@ -1,17 +1,15 @@
+{% from "macros.html" import render_field, render_submit %}
+
 {% extends "base.html" %}
 
 {% block content %}
 
 <h1>Suppression d'un étudiant</h1>
 
-<form method="post" action="" novalidate>
+<form class= "form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.student.label }}<br>
-    {{ form.student }}
-    {% for error in form.student.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.submit() }}
+    {{ render_field(form.student, class='form-control') }}
+    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
 {% endblock %}

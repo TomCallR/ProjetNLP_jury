@@ -1,27 +1,39 @@
-from datetime import timedelta, date, MINYEAR
+from datetime import datetime, timedelta, date, MINYEAR
 
 from flask import flash, render_template, url_for, redirect
 
 from app import app, db
-from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam
+from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm
 
 
-@app.route("/", methods=["GET", "POST"])
-@app.route("/index", methods=["GET", "POST"])
+@app.route("/")
+@app.route("/index")
 def index():
-    form = InitForm()  # TODO make generate conditional on existence
+    success = Db.exists()
+    if not success:
+        return redirect(url_for("basesetup"))
+    return render_template("index.html")
+
+
+@app.route("/base_setup", methods=["GET", "POST"])
+def basesetup():
+    form = InitForm()
     if form.validate_on_submit():
         try:
             db.create_all()
-            message = f"Succès : La base a été générée"
+            message = f"Succès : La base a été initialisée"
         except Exception as ex:
-            message = f"Erreur : Impossible de générer la base. Exception :\n{ex}"
+            message = f"Erreur : Impossible d'initialiser la base"
         flash(message)
-        return redirect(url_for("dashboard"))
-    return render_template("index.html", form=form)
+        return redirect(url_for("index"))
+    else:
+        success = Db.exists()
+        if success:
+            return redirect(url_for("index"))
+        return render_template("base_setup.html", form=form)
 
 
 @app.route("/dashboard")
@@ -88,7 +100,7 @@ def student_create():
         success, message = DbStudent.insert(
             lastname=form.lastname.data,
             firstname=form.firstname.data,
-            mail=form.mail.data,
+            email=form.email.data,
             course_id=form.course.data
         )
         flash(message)
@@ -99,14 +111,13 @@ def student_create():
 
 @app.route("/student/delete", methods=["GET", "POST"])
 def student_delete():
-    students_list = Student.query.order_by(Student.course.label,
-                                           Student.lastname,
-                                           Student.firstname).all()
+    students_list = db.session.query(Student).order_by(
+        Student.course_id, Student.email
+    )
     form = StudentDeleteForm()
     form.student.choices = []
     for student in students_list:
-        displaytext = f"{student.lastname} {str(student.firstname)}, " \
-                      f"mail {student.mail}, en formation {student.course.label}"
+        displaytext = f"Etudiant(e) {student.email}, en formation {student.course.label}"
         form.student.choices.append((str(student.id), displaytext))
     if form.validate_on_submit():
         success, message = DbStudent.delete(
@@ -120,16 +131,19 @@ def student_delete():
 @app.route("/spreadsheets", methods=["GET", "POST"])
 def spreadsheets():
     # TODO améliorer apparence de col check
-    # TODO améliorer apparence si None data
     form = SpreadsheetSelect()
     if form.validate_on_submit():
-        newmaxdelta = (date.today() - form.enddate.data)
+        newmaxdelta = (datetime.now().date() - form.enddate.data)
         success, message = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
                                             value=str(newmaxdelta.days))
+        if not success:
+            flash(f"Erreur : Echec de l'enregistrement de votre choix, une valeur par défaut sera utilisée")
         return redirect(url_for("sheets"))
     else:
-        maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
-        minenddate = date.today() - timedelta(days=int(maxdelta))
+        success, message, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+        if not success:
+            maxdelta = "35"
+        minenddate = datetime.now() - timedelta(days=int(maxdelta))
         form.enddate.data = minenddate
         spreadsheets_list = DbForm.queryspreadsheets(minenddate=form.enddate.data)
     return render_template("spreadsheets.html", courses=spreadsheets_list, form=form)
@@ -137,19 +151,23 @@ def spreadsheets():
 
 @app.route("/sheets", methods=["GET", "POST"])
 def sheets():
+    # TODO améliorer apparence de col check
     form = SheetsSelect()
-    maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
-    minenddate = date.today() - timedelta(days=int(maxdelta))
+    success, message, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+    minenddate = datetime.now() - timedelta(days=int(maxdelta))
     if form.validate_on_submit():
-        success, messages = DbForm.update(minenddate=minenddate,
-                                          daysnochange=form.daysnochange.data)
+        # Saving number of days for friendiness, failure unimportant
+        DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",
+                         value=str(form.daysnochange.data))
+        success, messages = DbForm.updateall(minenddate=minenddate,
+                                             daysnochange=form.daysnochange.data)
         for message in messages:
             flash(message)
-        success, message = DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",      #TODO s'assurer que success est bon
-                                            value=str(form.daysnochange.data))
         return redirect(url_for("sheets"))
     else:
-        dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
+        success, message, dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
+        if not success:
+            dbdaysnochange = "15"
         daysnochange = int(dbdaysnochange)
         form.daysnochange.data = daysnochange
         sheets_list = DbForm.querysheets(minenddate=minenddate,

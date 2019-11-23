@@ -7,8 +7,8 @@ class Course(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     label = db.Column(db.String(80), unique=True, nullable=False)
-    startdate = db.Column(db.Date, nullable=False)
-    enddate = db.Column(db.Date, nullable=False)
+    startdate = db.Column(db.DateTime, nullable=False)
+    enddate = db.Column(db.DateTime, nullable=False)
     spreadsheet = db.Column(db.String(120), unique=True, nullable=False)        # TODO allow blank string
 
     students = db.relationship('Student', back_populates='course')
@@ -26,7 +26,7 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lastname = db.Column(db.String(80), nullable=False)
     firstname = db.Column(db.String(80), nullable=False)
-    mail = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(80), unique=True, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='students')
@@ -43,10 +43,10 @@ class Form(db.Model):
     __tablename__ = 'Forms'
 
     id = db.Column(db.Integer, primary_key=True)
-    sheetid = db.Column(db.String(80), nullable=False)
+    sheetid = db.Column(db.String(80), unique=True, nullable=False)
     sheetlabel = db.Column(db.String(80), nullable=False)
-    lastentrydate = db.Column(db.Date, nullable=False)
-    lastreaddate = db.Column(db.Date, nullable=False)
+    lastentrydt = db.Column(db.DateTime, nullable=False)
+    lastreaddt = db.Column(db.DateTime, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('Courses.id'), nullable=False)
 
     course = db.relationship('Course', back_populates='forms')

@@ -6,8 +6,8 @@
 
 <h1>Liste des fichiers</h1>
 
-<p>Dans cette liste, seules sont sélectionnées les formations en cours après le {{ form.enddate.data }} et
-    qui ne débutent pas dans le futur</p>
+<p>Dans cette liste, seules sont sélectionnées les formations en cours après le
+    <strong>{{ form.enddate.data.date() }}</strong> et qui ne débutent pas dans le futur</p>
 
 <table class="table">
     <thead>
@@ -18,7 +18,6 @@
         <th>Date début</th>
         <th>Date fin</th>
         <th>Fichier</th>
-        <th>Nb onglets</th>
         <th>Dern. saisie</th>
         <th>Dern. lecture</th>
 
@@ -30,18 +29,19 @@
         <td>{{ course.check }}</td>
         <td>{{ course.Course.id }}</td>
         <td>{{ course.Course.label }}</td>
-        <td>{{ course.Course.startdate }}</td>
-        <td>{{ course.Course.enddate }}</td>
+        <td>{{ course.Course.startdate.date() }}</td>
+        <td>{{ course.Course.enddate.date() }}</td>
         {% if course.Course.spreadsheet == "" %}
-            <td>{{ course.Course.spreadsheet }}</td>
-            <td>{{ course.sheetcount }}</td>
-            <td>{{ course.lastentrydate }}</td>
-            <td>{{ course.lastreaddate }}</td>
+            <td>-</td>
         {% else %}
+            <td>{{ course.Course.spreadsheet }}</td>
+        {% endif %}
+        {% if course.Course.lastentrydt == course.Course.lastreaddt %}
             <td>-</td>
             <td>-</td>
-            <td>-</td>
-            <td>-</td>
+        {% else %}
+            <td>{{ course.lastentrydt.date() }}</td>
+            <td>{{ course.lastreaddt.date() }}</td>
         {% endif %}
     </tr>
     {% endfor %}

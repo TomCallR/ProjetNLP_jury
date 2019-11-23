@@ -8,11 +8,9 @@ from wtforms.validators import DataRequired, Email
 #     widget = ListWidget(prefix_label=False)
 #     option_widget = CheckboxInput()
 
-SIZE = 10
-
 
 class InitForm(FlaskForm):
-    submit = SubmitField("Générer la base")
+    submit = SubmitField("Initialiser la base")
 
 
 class CourseCreateForm(FlaskForm):
@@ -55,10 +53,10 @@ class StudentCreateForm(FlaskForm):
         label="Prénom",
         validators=[DataRequired(message="Saisissez un prénom")]
     )
-    mail = StringField(
-        label="Adresse mail",
-        validators=[DataRequired(message="Saisissez une adresse mail"),
-                    Email(message="Adresse mail incorrecte")]
+    email = StringField(
+        label="Email",
+        validators=[DataRequired(message="Saisissez un email"),
+                    Email(message="Email incorrect")]
     )
     course = SelectField(
         label="Formation",

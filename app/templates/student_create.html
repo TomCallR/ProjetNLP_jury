@@ -1,32 +1,18 @@
+{% from "macros.html" import render_field, render_submit %}
+
 {% extends "base.html" %}
 
 {% block content %}
 
 <h1>Ajout d'un étudiant</h1>
 
-<form method="post" action="" novalidate>
+<form class= "form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
-    {{ form.lastname.label }}<br>
-    {{ form.lastname }}
-    {% for error in form.lastname.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.firstname.label }}<br>
-    {{ form.firstname }}
-    {% for error in form.firstname.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.mail.label }}<br>
-    {{ form.mail }}
-    {% for error in form.mail.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.course.label }}<br>
-    {{ form.course }}
-    {% for error in form.course.errors %}
-        <span style="color: red;">[{{ error }}]</span>
-    {% endfor %}<br>
-    {{ form.submit() }}
+    {{ render_field(form.lastname, class='form-control') }}
+    {{ render_field(form.firstname, class='form-control') }}
+    {{ render_field(form.email, class='form-control') }}
+    {{ render_field(form.course, class='form-control') }}
+    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
 {% endblock %}

@@ -1,15 +1,6 @@
-{% from "macros.html" import render_submit %}
-
 {% extends 'base.html' %}
 
 {% block content %}
 <p>Bonjour</p>
-
-<p>Pour créer la base :</p>
-
-<form class="form" method="post" action="" novalidate>
-    {{ form.hidden_tag() }}
-    {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
-</form>
 
 {% endblock %}
