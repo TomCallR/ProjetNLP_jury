@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, SubmitField, SelectField, IntegerField
+from wtforms import StringField, DateField, SubmitField, SelectField, IntegerField, SelectMultipleField
 from wtforms.validators import DataRequired, Email
 
 
@@ -88,3 +88,19 @@ class SheetsSelect(FlaskForm):
         validators=[DataRequired(message="Saisissez un nombre de jours")]
     )
     submit = SubmitField("Mettre à jour")
+
+
+class DashboardForm(FlaskForm):
+    courses = SelectMultipleField(
+        label="Formations"
+    )
+    startdate = DateField(
+        label="Date de début"
+    )
+    enddate = DateField(
+        label="Date de fin"
+    )
+    students = SelectMultipleField(
+        label="Etudiants"
+    )
+    submit = SubmitField("Analyser")

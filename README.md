@@ -46,6 +46,10 @@ http://www.codestore.net/store.nsf/unid/BLOG-20111201-0411
 Conclusion :
 * utilisation de ces logins
 
+## Graphiques
+* cf https://towardsdatascience.com/how-to-use-ggplot2-in-python-74ab8adec129
+Utilisation de plotnine
+
 ## Textblob
 
 ???

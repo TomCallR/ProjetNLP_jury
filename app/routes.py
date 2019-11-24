@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta, date, MINYEAR
 
+import pandas as pd
 from flask import flash, render_template, url_for, redirect
+from plotnine import *
 
 from app import app, db
 from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
-    SheetsSelect, InitForm
+    SheetsSelect, InitForm, DashboardForm
 
 
 @app.route("/")
@@ -36,11 +38,6 @@ def basesetup():
         return render_template("base_setup.html", form=form)
 
 
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html")
-
-
 @app.route("/courses", methods=["GET"])
 def courses():
     courses_list = Course.query.all()
@@ -65,12 +62,12 @@ def course_create():
 
 @app.route("/course/delete", methods=["GET", "POST"])
 def course_delete():
-    courses_list = Course.query.all()
+    courses_list = db.session.query(Course).all()
     form = CourseDeleteForm()
     form.course.choices = []
     for course in courses_list:
-        displaytext = f"{course.label} du {course.startdate} au " \
-                      f"{str(course.startdate)}, fichier {course.now()}"
+        displaytext = f"{course.label} du {course.startdate.date()} au " \
+                      f"{course.enddate.date()}, fichier {course.filename}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbCourse.delete(
@@ -177,4 +174,34 @@ def sheets():
         flash("Erreur : Echec de la prise en compte de la date de fin de formation")
         return redirect(url_for("spreadsheets"))
     return render_template("sheets.html", gforms=sheets_list, form=form)
-#TODO pb les onglets inconnus en base ne sont pas listés
+
+
+@app.route("/dashboard", methods=["GET", "POST"])
+def dashboard():
+    form = DashboardForm()
+    form.courses.choices = []
+    form.students.choices = []
+    for course in db.session.query(Course).all():
+        displaytext = f"{course.label} du {course.startdate.date()} au " \
+                      f"{course.enddate.date()}, fichier {course.filename}"
+        form.courses.choices.append((str(course.id), displaytext))
+    for student in db.session.query(Student).all():
+        displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
+                      f"formation {student.course.label}"
+        form.students.choices.append((str(student.id), displaytext))
+    form.startdate.data = date(year=MINYEAR, month=1, day=1)
+    form.enddate.data = date(year=2025, month=12, day=31)
+    if form.validate_on_submit():
+        return redirect(url_for("dashboard_analyze"))
+    return render_template("dashboard.html", form=form)
+
+
+@app.route("/dashboard/analyze")
+def dashboard_analyze():
+    data1 = pd.DataFrame({
+        'poids': [10, 20, 30, 40, 50],
+        'taille': [1, 2, 4, 8, 16]
+    })
+    graph1 = (ggplot(data1) + geom_bar(aes(x="taille")))
+    graph1.save(filename="graph1.png", path="app/static", width=3, height=3)
+    return render_template("dashboard_analyze.html", graph=graph1)

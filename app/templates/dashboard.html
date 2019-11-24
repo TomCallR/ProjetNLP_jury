@@ -1,4 +1,19 @@
+{% from "macros.html" import render_field, render_submit %}
+
 {% extends "base.html" %}
 
 {% block content %}
+
+<h1>Sélections</h1>
+
+<form action="" class="form" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ render_field(form.courses, class='form-control') }}
+    {{ render_field(form.startdate, class='form-control') }}
+    {{ render_field(form.enddate, class='form-control') }}
+    {{ render_field(form.students, class='form-control') }}
+    {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
+</form>
+
+
 {% endblock %}
