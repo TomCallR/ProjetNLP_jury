@@ -36,7 +36,7 @@
         {% else %}
             <td>{{ course.Course.filename }}</td>
         {% endif %}
-        {% if course.Course.lastentrydt == course.Course.lastreaddt %}
+        {% if course.lastentrydt == course.lastreaddt %}
             <td>-</td>
             <td>-</td>
         {% else %}

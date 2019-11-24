@@ -2,6 +2,7 @@ from datetime import date, datetime, MINYEAR, timedelta
 from typing import Union, List
 
 import gspread
+from flask import flash
 from sqlalchemy import func, and_
 from sqlalchemy.orm import Query
 
@@ -24,9 +25,8 @@ class Db:
 class DbParam:
 
     @classmethod
-    def getparam(cls, name: str) -> (bool, str, str):
+    def getparam(cls, name: str) -> (bool, str):
         success = False
-        message = ""
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
         if param is None:
             try:
@@ -34,35 +34,36 @@ class DbParam:
                 success = True
             except Exception as ex:
                 res = None
-                message = f"Erreur : Valeur par défault du paramètre {name} non définie dans la configuration"
+                success = False
         else:
             res = param.value
             success = True
-        return success, message, res
+        return success, res
 
     @classmethod
-    def setparam(cls, name: str, value: Union[int, str]) -> (bool, str):
-        success = True
-        message = ""
+    def setparam(cls, name: str, value: Union[int, str]) -> bool:
+        success = False
         param = db.session.query(Parameter).filter(Parameter.name == name).first()
         if param is None:
             newparam = Parameter(name=name, value=str(value))
             try:
                 db.session.add(newparam)
                 db.session.commit()
+                success = True
             except Exception as ex:
                 db.session.rollback()
                 success = False
-                message = f"Erreur : Impossible d'ajouter le paramètre {name}"
+                flash(f"Erreur : Impossible d'ajouter le paramètre {name}")
         else:
             param.value = str(value)
             try:
                 db.session.commit()
+                success = True
             except Exception as ex:
                 db.session.rollback()
                 success = False
-                message = f"Erreur : Impossible de mettre à jour le paramètre {name}"
-        return success, message
+                flash(f"Erreur : Impossible de mettre à jour le paramètre {name}")
+        return success
 
 
 class DbCourse:
@@ -101,7 +102,7 @@ class DbCourse:
         if success:
             # try to read file
             apiaccess = ApiAccess()
-            success, message, spreadsheet = apiaccess.getfile(fileid)
+            success, spreadsheet = apiaccess.getfile(fileid)
             if success:
                 # insert new course
                 try:
@@ -217,9 +218,8 @@ class DbStudent:
 class DbForm:
 
     @classmethod
-    def createfromsheet(cls, course: Course, wsheet: gspread.models.Worksheet) -> (bool, str):
+    def createfromsheet(cls, course: Course, wsheet: gspread.models.Worksheet) -> bool:
         success = False
-        message = ""
         if wsheet is not None:
             newform = Form(sheetid=wsheet.id,
                            sheetlabel=wsheet.title,
@@ -230,13 +230,14 @@ class DbForm:
                 db.session.add(newform)
                 db.session.commit()
                 success = True
-                message = f"Succès: Onglet {wsheet.title} ajouté en base (formation {course.label}, " \
-                          f"fichier {course.filename})"
+                flash(f"Succès: Onglet {wsheet.title} ajouté en base (formation {course.label}, " +
+                      f"fichier {course.filename})")
             except Exception as ex:
                 db.session.rollback()
-                message = f"Erreur: Echec de l'ajout de l'onglet {wsheet.title} en base (formation " \
-                          f"{course.label}, fichier {course.filename}). Exception : {ex}"
-        return success, message
+                flash(f"Erreur: Echec de l'ajout de l'onglet {wsheet.title} en base (formation " +
+                      f"{course.label}, fichier {course.filename}). Exception : {ex}")
+                success = False
+        return success
 
     @classmethod
     def queryspreadsheets(cls, minenddate: datetime) -> Query:
@@ -270,17 +271,26 @@ class DbForm:
     @classmethod
     def querysheets(cls, minenddate: datetime, daysnochange: int) -> Query:
         deltadays = timedelta(days=daysnochange)
+        # subquery Answer aggregating data
+        answersubquery = db.session.query(
+            Answer.form_id.label("form_id"),
+            Answer.student_id.label("student_id")
+        ).group_by(
+            Answer.form_id,
+            Answer.student_id
+        ).subquery()
+        # join with Course and Form
         res = db.session.query(
             Course,
             Form,
-            func.count(Answer.id).label("answercount"),
+            func.count(answersubquery.c.student_id).label("answercount"),
             ((Form.lastreaddt - Form.lastentrydt) <= deltadays).label("check"),
         ).outerjoin(
             Form,
             Course.id == Form.course_id
         ).outerjoin(
-            Answer,
-            Form.id == Answer.form_id
+            answersubquery,
+            Form.id == answersubquery.c.form_id
         ).group_by(
             Course.id,
             Form.id
@@ -295,9 +305,7 @@ class DbForm:
         return res
 
     @classmethod
-    def updatedates(cls, gform: Form) -> (bool, str):
-        success = True
-        message = ""
+    def updatedates(cls, gform: Form) -> bool:
         lastentrydt = db.session.query(
             func.max(Answer.timestamp).label("lastentrydt")
         ).filter(
@@ -308,48 +316,43 @@ class DbForm:
         gform.lastreaddt = datetime.now(tz=None)
         try:
             db.session.commit()
+            success = True
         except Exception as ex:
             db.session.rollback()
             success = False
-            message = f"Erreur : Echec de mise à jour des dates du formulaire (formation {gform.course.label}, " \
-                      f"fichier {gform.course.filename}, onglet {gform.sheetlabel})"
-        return success, message
+            flash(f"Erreur : Echec de mise à jour des dates du formulaire (formation {gform.course.label}, " +
+                  f"fichier {gform.course.filename}, onglet {gform.sheetlabel})")
+        return success
 
     @classmethod
-    def updateall(cls, minenddate: datetime, daysnochange: int) -> (bool, List[str]):
-        messages = []
+    def updateall(cls, minenddate: datetime, daysnochange: int) -> bool:
         success = (minenddate is not None)
-        message = "Erreur : Aucune date de fin définie pour les formations à ignorer" if not success else ""
         if not success:
-            messages.append(message)
+            flash("Erreur : Aucune date de fin de formation définie")
         if success:
             success = (daysnochange >= 0)
-            message = "Erreur : Aucun délai de stabilité défini pour les onglets à ignorer" if not success else ""
             if not success:
-                messages.append(message)
+                flash("Erreur : Aucun délai de stabilité défini pour les onglets à ignorer")
         if success:
             courses_list = DbCourse.querycurrent(minenddate=minenddate)
             apiaccess = ApiAccess()
             for course in courses_list:
-                success, message, file = apiaccess.getfile(fileid=course.fileid)
+                success, file = apiaccess.getfile(fileid=course.fileid)
                 if not success:
-                    messages.append(message)
-                    success = True  # continue with other files
+                    success = True  # there might be success with other files
                 else:
                     wsheets = file.worksheets()
                     for wsheet in wsheets:
-                        success, message = cls.update(course=course, daysnochange=daysnochange, wsheet=wsheet)
-                        messages.append(message)
-                        success = True  # continue with other files
-        return success, messages
+                        success = cls.update(course=course, daysnochange=daysnochange, wsheet=wsheet)
+                        success = True  # there might be success with other sheets / files
+        return success
 
     @classmethod
-    def update(cls, course: Course, daysnochange: int, wsheet: gspread.Worksheet) -> (bool, str):
-        success = True
-        message = ""
+    def update(cls, course: Course, daysnochange: int, wsheet: gspread.Worksheet) -> bool:
         gformsdict = {gform.sheetid: gform for gform in course.forms}
-        if wsheet.id not in gformsdict:
-            success, message = cls.createfromsheet(course=course, wsheet=wsheet)
+        success = (wsheet.id in gformsdict)
+        if not success:
+            success = cls.createfromsheet(course=course, wsheet=wsheet)
         if success:
             gformsdict = {gform.sheetid: gform for gform in course.forms}
             gform = gformsdict[wsheet.id]
@@ -357,21 +360,21 @@ class DbForm:
                 wsheetdata = wsheet.get_all_records()
                 if (wsheetdata is not None) and (wsheetdata != {}):
                     DbQuestion.createfromsheet(course=course, wsheetdata=wsheetdata)
-                    success, message = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
+                    success = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
                     if success:
                         try:
                             db.session.commit()
                             success = True
-                            message = f"Succès : Réponses mises à jour (formation {course.label}, " \
-                                      f"fichier {course.filename}, onglet {gform.sheetlabel})"
+                            flash(f"Succès : Réponses mises à jour (formation {course.label}, " +
+                                  f"fichier {course.filename}, onglet {gform.sheetlabel})")
                         except Exception as ex:
                             db.session.rollback()
                             success = False
-                            message = f"Erreur : Echec de la mise à jour des réponses (formation {course.label}, " \
-                                      f"fichier {course.filename}, onglet {gform.sheetlabel})"
+                            flash(f"Erreur : Echec de la mise à jour des réponses (formation {course.label}, " +
+                                  f"fichier {course.filename}, onglet {gform.sheetlabel})")
                         if success:
-                            success, message = cls.updatedates(gform=gform)
-        return success, message
+                            success = cls.updatedates(gform=gform)
+        return success
 
 
 class DbQuestion:
@@ -399,13 +402,14 @@ class DbAnswer:
 
     @classmethod
     def updatefromrow(cls, gform: Form, row: dict, tsheader: str, emailheader: str,
-                      studentsdict: dict, questionsdict: dict, answersdict: dict) -> (bool, str):
+                      studentsdict: dict, questionsdict: dict, answersdict: dict) -> bool:
         timestamp = datetime.strptime(row[tsheader].strip(), "%d/%m/%Y %H:%M:%S")  # TODO securiser
         email = row[emailheader].strip()
         success = (email in studentsdict)
-        message = f"Erreur : Email {email} inconnu dans le fichier {gform.course.filename}, " \
-                  f"onglet {gform.sheetlabel}, réponse ignorée" if not success else ""
-        if success:
+        if not success:
+            flash(f"Erreur : Email {email} inconnu dans le fichier {gform.course.filename}, " +
+                  f"onglet {gform.sheetlabel}, réponse ignorée")
+        else:
             studentid = studentsdict[email].id
             for header, value in row.items():
                 if header not in (tsheader, emailheader):
@@ -419,27 +423,26 @@ class DbAnswer:
                         newanswer = Answer(timestamp=timestamp, text=text, form_id=gform.id,
                                            student_id=studentid, question_id=questionid)
                         gform.answers.append(newanswer)
-        return success, message
+        return success
 
     @classmethod
-    def updatefromsheet(cls, gform: Form, wsheetdata: dict) -> (bool, str):
-        success = True
-        message = ""
+    def updatefromsheet(cls, gform: Form, wsheetdata: dict) -> bool:
+        success = False
         if gform is not None and wsheetdata is not None and wsheetdata != []:
             tsheader = ApiAccess.TIMESTAMP_HEADER
             emailheader = ApiAccess.EMAIL_HEADER
-            if tsheader not in wsheetdata[0] or emailheader not in wsheetdata[0]:
-                success = False
-                message = f"Erreur : Entêtes pour l'horodatage et/ou l'email non trouvés " \
-                          f"(formation {gform.course.label}, fichier {gform.course.filename}, " \
-                          f"onglet {gform.sheetlabel})"
+            success = ((tsheader in wsheetdata[0]) and (emailheader in wsheetdata[0]))
+            if not success:
+                flash(f"Erreur : Entêtes pour l'horodatage et/ou l'email non trouvés " +
+                      f"(formation {gform.course.label}, fichier {gform.course.filename}, " +
+                      f"onglet {gform.sheetlabel})")
             else:
                 course = gform.course
                 studentsdict = {student.email.strip(): student for student in course.students}
                 questionsdict = {question.text.strip(): question for question in course.questions}
                 answersdict = {(answer.student_id, answer.question_id): answer for answer in gform.answers}
                 for index, row in enumerate(wsheetdata):
-                    success, message = cls.updatefromrow(gform=gform, row=row, tsheader=tsheader,
-                                                         emailheader=emailheader, studentsdict=studentsdict,
-                                                         questionsdict=questionsdict, answersdict=answersdict)
-        return success, message
+                    success = cls.updatefromrow(gform=gform, row=row, tsheader=tsheader,
+                                                emailheader=emailheader, studentsdict=studentsdict,
+                                                questionsdict=questionsdict, answersdict=answersdict)
+        return success

@@ -134,13 +134,13 @@ def spreadsheets():
     form = SpreadsheetSelect()
     if form.validate_on_submit():
         newmaxdelta = (datetime.now().date() - form.enddate.data)
-        success, message = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
-                                            value=str(newmaxdelta.days))
+        success = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
+                                   value=str(newmaxdelta.days))
         if not success:
-            flash(f"Erreur : Echec de l'enregistrement de votre choix, une valeur par défaut sera utilisée")
+            flash(f"Erreur : La date de fin de formation choisie n'a pas été sauvegardée")
         return redirect(url_for("sheets"))
     else:
-        success, message, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+        success, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
         if not success:
             maxdelta = "35"
         minenddate = datetime.now() - timedelta(days=int(maxdelta))
@@ -153,24 +153,28 @@ def spreadsheets():
 def sheets():
     # TODO améliorer apparence de col check
     form = SheetsSelect()
-    success, message, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
-    minenddate = datetime.now() - timedelta(days=int(maxdelta))
-    if form.validate_on_submit():
-        # Saving number of days for friendiness, failure unimportant
-        DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",
-                         value=str(form.daysnochange.data))
-        success, messages = DbForm.updateall(minenddate=minenddate,
+    success, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+    if success:
+        minenddate = datetime.now() - timedelta(days=int(maxdelta))
+        if form.validate_on_submit():
+            # Saving number of days for friendiness, failure unimportant
+            DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",
+                             value=str(form.daysnochange.data))
+            success = DbForm.updateall(minenddate=minenddate,
+                                       daysnochange=form.daysnochange.data)
+            if not success:
+                flash("Attention : Des erreurs dans la mise à jour, certaines réponses n'ont pas été mises à jour")
+            return redirect(url_for("sheets"))
+        else:
+            success, dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
+            if not success:
+                dbdaysnochange = "15"
+            daysnochange = int(dbdaysnochange)
+            form.daysnochange.data = daysnochange
+            sheets_list = DbForm.querysheets(minenddate=minenddate,
                                              daysnochange=form.daysnochange.data)
-        for message in messages:
-            flash(message)
-        return redirect(url_for("sheets"))
     else:
-        success, message, dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
-        if not success:
-            dbdaysnochange = "15"
-        daysnochange = int(dbdaysnochange)
-        form.daysnochange.data = daysnochange
-        sheets_list = DbForm.querysheets(minenddate=minenddate,
-                                         daysnochange=form.daysnochange.data)
+        flash("Erreur : Echec de la prise en compte de la date de fin de formation")
+        return redirect(url_for("spreadsheets"))
     return render_template("sheets.html", gforms=sheets_list, form=form)
 #TODO pb les onglets inconnus en base ne sont pas listés

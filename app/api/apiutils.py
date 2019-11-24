@@ -1,6 +1,7 @@
 import os
 
 import gspread
+from flask import flash
 
 from app import app
 from oauth2client.service_account import ServiceAccountCredentials
@@ -25,9 +26,7 @@ class ApiAccess:
             filename=credfile, scopes=self.API_SCOPE)
         self.client = gspread.authorize(creds)
 
-    def getfile(self, fileid: str) -> (bool, str, gspread.models.Spreadsheet):
-        success = False
-        message = ""
+    def getfile(self, fileid: str) -> (bool, gspread.models.Spreadsheet):
         spreadsheet = None
         if self.client is None:
             self.initclient()
@@ -35,8 +34,9 @@ class ApiAccess:
             spreadsheet = self.client.open_by_key(key=fileid)
             success = True
         except gspread.exceptions.SpreadsheetNotFound as ex:
-            message = f"Erreur : Fichier id {fileid} non trouvé"
-        return success, message, spreadsheet
+            success = False
+            flash(f"Erreur : Fichier id {fileid} non trouvé")
+        return success, spreadsheet
 
 
 
