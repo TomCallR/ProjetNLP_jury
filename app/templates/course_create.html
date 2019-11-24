@@ -6,12 +6,16 @@
 
 <h1>Ajout d'une formation</h1>
 
+<p>L'id de fichier demandé est l'id indiqué dans l'URL du fichier. Il est du style
+    "0BmgG6nO_6dprdS1MN3d3MkdPa142WFRrdnRRUWl1UFE".</p>
+<p>Le nom de fichier sera renseigné automatiquement.</p>
+
 <form class= "form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
     {{ render_field(form.label, class='form-control') }}
     {{ render_field(form.startdate, class='form-control') }}
     {{ render_field(form.enddate, class='form-control') }}
-    {{ render_field(form.spreadsheet, class='form-control') }}
+    {{ render_field(form.fileid, class='form-control') }}
     {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>
 

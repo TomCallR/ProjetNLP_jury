@@ -55,7 +55,7 @@ def course_create():
             label=form.label.data,
             startdate=form.startdate.data,
             enddate=form.enddate.data,
-            spreadsheet=form.spreadsheet.data
+            fileid=form.fileid.data
         )
         flash(message)
         if success:
@@ -70,7 +70,7 @@ def course_delete():
     form.course.choices = []
     for course in courses_list:
         displaytext = f"{course.label} du {course.startdate} au " \
-                      f"{str(course.startdate)}, fichier {course.spreadsheet}"
+                      f"{str(course.startdate)}, fichier {course.now()}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbCourse.delete(
@@ -94,7 +94,7 @@ def student_create():
     form.course.choices = []
     for course in courses_list:
         displaytext = f"{course.label} du {course.startdate} au " \
-                      f"{str(course.startdate)}, fichier {course.spreadsheet}"
+                      f"{str(course.startdate)}, fichier {course.filename}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbStudent.insert(

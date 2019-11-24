@@ -31,10 +31,10 @@
         <td>{{ course.Course.label }}</td>
         <td>{{ course.Course.startdate.date() }}</td>
         <td>{{ course.Course.enddate.date() }}</td>
-        {% if course.Course.spreadsheet == "" %}
+        {% if course.Course.filename == "" %}
             <td>-</td>
         {% else %}
-            <td>{{ course.Course.spreadsheet }}</td>
+            <td>{{ course.Course.filename }}</td>
         {% endif %}
         {% if course.Course.lastentrydt == course.Course.lastreaddt %}
             <td>-</td>

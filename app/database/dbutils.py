@@ -5,7 +5,7 @@ import gspread
 from sqlalchemy import func, and_
 from sqlalchemy.orm import Query
 
-from app import db, app
+from app import db
 from app.api.apiutils import ApiAccess
 from app.database.models import Course, Student, Form, Question, Answer, Parameter
 
@@ -70,14 +70,14 @@ class DbCourse:
     @classmethod
     def querycurrent(cls, minenddate: datetime) -> Query:
         courses = db.session.query(Course).filter(
-            Course.spreadsheet != "",
+            Course.filename != "",
             Course.enddate > minenddate,
             Course.startdate <= datetime.now()
         )
         return courses
 
     @classmethod
-    def insert(cls, label: str, startdate: date, enddate: date, spreadsheet: str) -> (bool, str):
+    def insert(cls, label: str, startdate: date, enddate: date, fileid: str) -> (bool, str):
         # check fields all filled
         success = (label is not None and label != "")
         message = "Erreur : L'intitulé n'est pas renseigné" if not success else ""
@@ -88,29 +88,34 @@ class DbCourse:
             success = (enddate is not None)
             message = "Erreur : La date de fin n'est pas renseignée" if not success else ""
         if success:  # TODO pas forcément au début
-            success = (spreadsheet is not None and spreadsheet != "")
+            success = (fileid is not None and fileid != "")
             message = "Erreur : Le fichier des formulaires n'est pas renseigné" if not success else ""
         # check dates coherent
         if success:
             success = (startdate <= enddate)
             message = "Erreur : La date de début est postérieure à la date de fin" if not success else ""
-        # check neither label nor spreadsheet already exists in Courses
+        # check fileid does not already exist in Courses
         if success:
-            success = (Course.query.filter_by(label=label).count() == 0)
-            message = "Erreur : Une formation avec le même intitulé existe déjà" if not success else ""
+            success = (Course.query.filter_by(fileid=fileid).count() == 0)
+            message = "Erreur : Une formation avec le même id de fichier existe déjà" if not success else ""
         if success:
-            success = (Course.query.filter_by(spreadsheet=spreadsheet).count() == 0)
-            message = "Erreur : Une formation avec le même fichier associé existe déjà" if not success else ""
-        if success:
-            try:
-                newcourse = Course(label=label, startdate=startdate, enddate=enddate, spreadsheet=spreadsheet)
-                db.session.add(newcourse)
-                db.session.commit()
-                message = f"Succès : Formation {newcourse.label} ajoutée"
-            except Exception as ex:
-                db.session.rollback()
-                success = False
-                message = str(ex)
+            # try to read file
+            apiaccess = ApiAccess()
+            success, message, spreadsheet = apiaccess.getfile(fileid)
+            if success:
+                # insert new course
+                try:
+                    metadata = spreadsheet.fetch_sheet_metadata()
+                    timezone = metadata["properties"]["timeZone"]
+                    newcourse = Course(label=label, startdate=startdate, enddate=enddate,
+                                       fileid=fileid, filename=spreadsheet.title, filetz=timezone)
+                    db.session.add(newcourse)
+                    db.session.commit()
+                    message = f"Succès : Formation {newcourse.label} ajoutée"
+                except Exception as ex:
+                    db.session.rollback()
+                    success = False
+                    message = str(ex)
         return success, message
 
     @classmethod
@@ -164,7 +169,7 @@ class DbStudent:
         if success:
             success = ((course_id is not None) and (course_id != ""))
             message = "Erreur : La formation n'est pas renseignée" if not success else ""
-        # check neither label nor spreadsheet already exists in Courses
+        # check neither label nor filename already exists in Courses
         if success:
             success = (Student.query.filter_by(email=email).count() == 0)
             message = "Erreur : Un(e) étudiant(e) avec le même email existe déjà" if not success else ""
@@ -212,13 +217,26 @@ class DbStudent:
 class DbForm:
 
     @classmethod
-    def createfromsheet(cls, courseid: int, wsheet: gspread.models.Worksheet) -> Form:
-        newform = Form(sheetid=wsheet.id,
-                       sheetlabel=wsheet.title,
-                       lastentrydt=datetime.now(),  # default before reading answers
-                       lastreaddt=datetime.now(),
-                       course_id=courseid)
-        return newform
+    def createfromsheet(cls, course: Course, wsheet: gspread.models.Worksheet) -> (bool, str):
+        success = False
+        message = ""
+        if wsheet is not None:
+            newform = Form(sheetid=wsheet.id,
+                           sheetlabel=wsheet.title,
+                           lastentrydt=datetime.now(tz=None),  # default before reading answers
+                           lastreaddt=datetime.now(tz=None),
+                           course_id=course.id)
+            try:
+                db.session.add(newform)
+                db.session.commit()
+                success = True
+                message = f"Succès: Onglet {wsheet.title} ajouté en base (formation {course.label}, " \
+                          f"fichier {course.filename})"
+            except Exception as ex:
+                db.session.rollback()
+                message = f"Erreur: Echec de l'ajout de l'onglet {wsheet.title} en base (formation " \
+                          f"{course.label}, fichier {course.filename}). Exception : {ex}"
+        return success, message
 
     @classmethod
     def queryspreadsheets(cls, minenddate: datetime) -> Query:
@@ -237,7 +255,7 @@ class DbForm:
         res = db.session.query(
             Course,
             formsubquery,
-            (and_(Course.spreadsheet != "",
+            (and_(Course.filename != "",
                   Course.enddate > xminenddate,
                   Course.startdate <= today)).label("check")
         ).outerjoin(
@@ -267,7 +285,7 @@ class DbForm:
             Course.id,
             Form.id
         ).filter(
-            Course.spreadsheet != "",
+            Course.filename != "",
             Course.enddate > minenddate,
             Course.startdate <= datetime.now()
         ).order_by(
@@ -284,17 +302,17 @@ class DbForm:
             func.max(Answer.timestamp).label("lastentrydt")
         ).filter(
             Answer.form_id == gform.id
-        ).group_by(Answer.form_id)
+        ).group_by(Answer.form_id).first()
         if lastentrydt is not None:
-            gform.lastentrydt = lastentrydt
-        gform.lastreaddt = datetime.now()
+            gform.lastentrydt = lastentrydt[0]
+        gform.lastreaddt = datetime.now(tz=None)
         try:
             db.session.commit()
         except Exception as ex:
             db.session.rollback()
             success = False
             message = f"Erreur : Echec de mise à jour des dates du formulaire (formation {gform.course.label}, " \
-                      f"fichier {gform.course.spreadsheet}, onglet {gform.sheetlabel})"
+                      f"fichier {gform.course.filename}, onglet {gform.sheetlabel})"
         return success, message
 
     @classmethod
@@ -313,7 +331,7 @@ class DbForm:
             courses_list = DbCourse.querycurrent(minenddate=minenddate)
             apiaccess = ApiAccess()
             for course in courses_list:
-                success, message, file = apiaccess.getfile(name=course.spreadsheet)
+                success, message, file = apiaccess.getfile(fileid=course.fileid)
                 if not success:
                     messages.append(message)
                     success = True  # continue with other files
@@ -331,28 +349,28 @@ class DbForm:
         message = ""
         gformsdict = {gform.sheetid: gform for gform in course.forms}
         if wsheet.id not in gformsdict:
-            gform = cls.createfromsheet(courseid=course.id, wsheet=wsheet)
-            db.session.add(gform)
-            gformsdict[wsheet.id] = gform
-        gform = gformsdict[wsheet.id]
-        if gform.lastentrydt >= gform.lastreaddt - timedelta(days=daysnochange):
-            wsheetdata = wsheet.get_all_records()
-            if (wsheetdata is not None) and (wsheetdata != {}):
-                DbQuestion.createfromsheet(course=course, wsheetdata=wsheetdata)
-                success, message = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
-                if success:
-                    try:
-                        db.session.commit()
-                        success = True
-                        message = f"Succès : Réponses mises à jour (formation {course.label}, " \
-                                  f"fichier {course.spreadsheet}, onglet {gform.sheetlabel})"
-                    except Exception as ex:
-                        db.session.rollback()
-                        success = False
-                        message = f"Erreur : Echec de la mise à jour des réponses (formation {course.label}, " \
-                                  f"fichier {course.spreadsheet}, onglet {gform.sheetlabel})"
+            success, message = cls.createfromsheet(course=course, wsheet=wsheet)
+        if success:
+            gformsdict = {gform.sheetid: gform for gform in course.forms}
+            gform = gformsdict[wsheet.id]
+            if gform.lastentrydt >= gform.lastreaddt - timedelta(days=daysnochange):
+                wsheetdata = wsheet.get_all_records()
+                if (wsheetdata is not None) and (wsheetdata != {}):
+                    DbQuestion.createfromsheet(course=course, wsheetdata=wsheetdata)
+                    success, message = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
                     if success:
-                        success, message = cls.updatedates(gform=gform)
+                        try:
+                            db.session.commit()
+                            success = True
+                            message = f"Succès : Réponses mises à jour (formation {course.label}, " \
+                                      f"fichier {course.filename}, onglet {gform.sheetlabel})"
+                        except Exception as ex:
+                            db.session.rollback()
+                            success = False
+                            message = f"Erreur : Echec de la mise à jour des réponses (formation {course.label}, " \
+                                      f"fichier {course.filename}, onglet {gform.sheetlabel})"
+                        if success:
+                            success, message = cls.updatedates(gform=gform)
         return success, message
 
 
@@ -372,8 +390,8 @@ class DbQuestion:
                             numint += 1
                         else:
                             numstr += 1
-                    newquestion = Question(isint=(numstr == 0), text=text,
-                                           course_id=Course.id)
+                    isint = "Y" if numstr == 0 else "N"
+                    newquestion = Question(isint=isint, text=text, course_id=Course.id)
                     course.questions.append(newquestion)
 
 
@@ -385,7 +403,7 @@ class DbAnswer:
         timestamp = datetime.strptime(row[tsheader].strip(), "%d/%m/%Y %H:%M:%S")  # TODO securiser
         email = row[emailheader].strip()
         success = (email in studentsdict)
-        message = f"Erreur : Email {email} inconnu dans le fichier {gform.course.spreadsheet}, " \
+        message = f"Erreur : Email {email} inconnu dans le fichier {gform.course.filename}, " \
                   f"onglet {gform.sheetlabel}, réponse ignorée" if not success else ""
         if success:
             studentid = studentsdict[email].id
@@ -394,9 +412,9 @@ class DbAnswer:
                     text = str(value).strip()
                     questionid = questionsdict[header].id
                     if (studentid, questionid) in answersdict:
-                        with answersdict[(studentid, questionid)] as answer:
-                            answer.timestamp = timestamp
-                            answer.text = text
+                        answer = answersdict[(studentid, questionid)]
+                        answer.timestamp = timestamp
+                        answer.text = text
                     else:
                         newanswer = Answer(timestamp=timestamp, text=text, form_id=gform.id,
                                            student_id=studentid, question_id=questionid)
@@ -413,7 +431,7 @@ class DbAnswer:
             if tsheader not in wsheetdata[0] or emailheader not in wsheetdata[0]:
                 success = False
                 message = f"Erreur : Entêtes pour l'horodatage et/ou l'email non trouvés " \
-                          f"(formation {gform.course.label}, fichier {gform.course.spreadsheet}, " \
+                          f"(formation {gform.course.label}, fichier {gform.course.filename}, " \
                           f"onglet {gform.sheetlabel})"
             else:
                 course = gform.course

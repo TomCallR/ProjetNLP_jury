@@ -14,7 +14,7 @@ from app.database.models import Course
 # da = Course(label='Data Analyst',
 #             startdate=date(2019, 3, 18),
 #             enddate=date(2019, 12, 2),
-#             spreadsheet='ProjetNLP')
+#             now()='ProjetNLP')
 # session.add(da)
 # session.commit()
 

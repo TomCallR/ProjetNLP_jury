@@ -35,10 +35,10 @@
         {% endif %}
         <td>{{ gform.Course.id }}</td>
         <td>{{ gform.Course.label }}</td>
-        {% if gform.Course.spreadsheet == "" %}
+        {% if gform.Course.filename == "" %}
             <td>-</td>
         {% else %}
-            <td>{{ gform.Course.spreadsheet }}</td>
+            <td>{{ gform.Course.filename }}</td>
         {% endif %}
         {% if gform.Form.sheetid == "" %}
             <td>-</td>

@@ -28,9 +28,9 @@ class CourseCreateForm(FlaskForm):
         # format='%d/%m/%Y', does not work
         validators=[DataRequired(message="Saisissez une date de fin")]
     )
-    spreadsheet = StringField(  # TODO allow null first
-        label="Nom du fichier associé (réponses aux formulaires)",
-        validators=[DataRequired(message="Saisissez le nom du fichier")]
+    fileid = StringField(  # TODO allow null first
+        label="Id du fichier associé (réponses aux formulaires)",
+        validators=[DataRequired(message="Saisissez l'id' du fichier")]
     )
     submit = SubmitField("Ajouter")
 

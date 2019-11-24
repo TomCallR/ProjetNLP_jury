@@ -68,6 +68,9 @@ requête : faire un dict avec en clé le critère de recherche
 * formulaires : champs = class variables donc ne pas essayer d'initialiser par
 paramètre : les variables classe ne doivent pas être manipulées par des instances (cf doc python
 https://docs.python.org/2/tutorial/classes.html)
+* Pb de thread je ne sais pas ce que c'est mais je soupçonne qu'il faut commiter plus souvent
+donc je le fais et je relis la base
+* Débugger passe dans les fichiers Flask
 
 ## Evolutions possibles
 * Archivage
@@ -78,6 +81,9 @@ https://docs.python.org/2/tutorial/classes.html)
 * Création de la base : elle peut exister mais le serveur n'être pas connecté
 * suppression en masse d'étudiants oou d'autres choses ? (pas sûr)
 * archivage
+* add table responsive everywhere like courses.html
+* table Course : ajouter un champ URL du fichier à remplir à chaque création de formation
+(contrôle pour accepter le nom de fichier peut-être)
 
 ## Erreurs fréquentes :
 * mettre methods=["GET", "POST"]
