@@ -5,7 +5,7 @@ from flask import flash, render_template, url_for, redirect
 from plotnine import *
 
 from app import app, db
-from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db
+from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db, ParamName
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm, DashboardForm
@@ -131,13 +131,13 @@ def spreadsheets():
     form = SpreadsheetSelect()
     if form.validate_on_submit():
         newmaxdelta = (datetime.now().date() - form.enddate.data)
-        success = DbParam.setparam(name="MAX_DELTA_TO_ENDDATE",
+        success = DbParam.setparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value,
                                    value=str(newmaxdelta.days))
         if not success:
             flash(f"Erreur : La date de fin de formation choisie n'a pas été sauvegardée")
         return redirect(url_for("sheets"))
     else:
-        success, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+        success, maxdelta = DbParam.getparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value)
         if not success:
             maxdelta = "35"
         minenddate = datetime.now() - timedelta(days=int(maxdelta))
@@ -150,12 +150,12 @@ def spreadsheets():
 def sheets():
     # TODO améliorer apparence de col check
     form = SheetsSelect()
-    success, maxdelta = DbParam.getparam(name="MAX_DELTA_TO_ENDDATE")
+    success, maxdelta = DbParam.getparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value)
     if success:
         minenddate = datetime.now() - timedelta(days=int(maxdelta))
         if form.validate_on_submit():
             # Saving number of days for friendiness, failure unimportant
-            DbParam.setparam(name="MAX_DAYS_SHEET_NOT_CHANGED",
+            DbParam.setparam(name=ParamName.MAX_DAYS_SHEET_NOT_CHANGED.value,
                              value=str(form.daysnochange.data))
             success = DbForm.updateall(minenddate=minenddate,
                                        daysnochange=form.daysnochange.data)
@@ -163,7 +163,7 @@ def sheets():
                 flash("Attention : Des erreurs dans la mise à jour, certaines réponses n'ont pas été mises à jour")
             return redirect(url_for("sheets"))
         else:
-            success, dbdaysnochange = DbParam.getparam(name="MAX_DAYS_SHEET_NOT_CHANGED")
+            success, dbdaysnochange = DbParam.getparam(name=ParamName.MAX_DAYS_SHEET_NOT_CHANGED.value)
             if not success:
                 dbdaysnochange = "15"
             daysnochange = int(dbdaysnochange)
@@ -179,20 +179,38 @@ def sheets():
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
     form = DashboardForm()
-    form.courses.choices = []
-    form.students.choices = []
-    for course in db.session.query(Course).all():
-        displaytext = f"{course.label} du {course.startdate.date()} au " \
-                      f"{course.enddate.date()}, fichier {course.filename}"
-        form.courses.choices.append((str(course.id), displaytext))
-    for student in db.session.query(Student).all():
-        displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
-                      f"formation {student.course.label}"
-        form.students.choices.append((str(student.id), displaytext))
-    form.startdate.data = date(year=MINYEAR, month=1, day=1)
-    form.enddate.data = date(year=2025, month=12, day=31)
     if form.validate_on_submit():
+        val = "" if form.courses.data is None else ",".join(form.courses.data)
+        success = DbParam.setparam(name=ParamName.COURSES_FOR_DASHBOARD.value, value=val)
+        if not success:
+            flash("Erreur : Sélection de formations perdue")
+        val = "" if form.students.data is None else ",".join(form.students.data)
+        success = DbParam.setparam(name=ParamName.STUDENTS_FOR_DASHBOARD.value, value=val)
+        if not success:
+            flash("Erreur : Sélection d'étudiants perdue")
+        val = "" if form.startdate.data is None else form.startdate.data
+        success = DbParam.setparam(name=ParamName.STARTDATE_FOR_DASHBOARD.value, value=val)
+        if not success:
+            flash("Erreur : Sélection de date de départ perdue")
+        val = "" if form.enddate.data is None else form.enddate.data
+        success = DbParam.setparam(name=ParamName.ENDDATE_FOR_DASHBOARD.value, value=val)
+        if not success:
+            flash("Erreur : Sélection de date de départ perdue")
         return redirect(url_for("dashboard_analyze"))
+
+    else:
+        form.courses.choices = []
+        form.students.choices = []
+        for course in db.session.query(Course).all():
+            displaytext = f"{course.label} du {course.startdate.date()} au " \
+                          f"{course.enddate.date()}, fichier {course.filename}"
+            form.courses.choices.append((str(course.id), displaytext))
+        for student in db.session.query(Student).all():
+            displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
+                          f"formation {student.course.label}"
+            form.students.choices.append((str(student.id), displaytext))
+        form.startdate.data = date(year=MINYEAR, month=1, day=1)
+        form.enddate.data = date(year=2025, month=12, day=31)
     return render_template("dashboard.html", form=form)
 
 

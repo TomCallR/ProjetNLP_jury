@@ -1,4 +1,5 @@
 from datetime import date, datetime, MINYEAR, timedelta
+from enum import Enum
 from typing import Union, List
 
 import gspread
@@ -9,6 +10,15 @@ from sqlalchemy.orm import Query
 from app import db
 from app.api.apiutils import ApiAccess
 from app.database.models import Course, Student, Form, Question, Answer, Parameter
+
+
+class ParamName(Enum):
+    MAX_DAYS_SHEET_NOT_CHANGED = "MAX_DAYS_SHEET_NOT_CHANGED"
+    MAX_DELTA_TO_ENDDATE = "MAX_DELTA_TO_ENDDATE"
+    COURSES_FOR_DASHBOARD = "COURSES_FOR_DASHBOARD"
+    STUDENTS_FOR_DASHBOARD = "STUDENTS_FOR_DASHBOARD"
+    STARTDATE_FOR_DASHBOARD = "STARTDATE_FOR_DASHBOARD"
+    ENDDATE_FOR_DASHBOARD = "ENDDATE_FOR_DASHBOARD"
 
 
 class Db:

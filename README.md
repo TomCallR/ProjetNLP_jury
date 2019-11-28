@@ -88,6 +88,7 @@ donc je le fais et je relis la base
 * add table responsive everywhere like courses.html
 * table Course : ajouter un champ URL du fichier à remplir à chaque création de formation
 (contrôle pour accepter le nom de fichier peut-être)
+* améliorer la gestion des listes de formation ou d'élèves dans Params pour le dashboard
 
 ## Erreurs fréquentes :
 * mettre methods=["GET", "POST"]
