@@ -75,6 +75,9 @@ https://docs.python.org/2/tutorial/classes.html)
 * Pb de thread je ne sais pas ce que c'est mais je soupçonne qu'il faut commiter plus souvent
 donc je le fais et je relis la base
 * Débugger passe dans les fichiers Flask
+* passage de paramètres d'une page à l'autre 
+solution : https://pythonise.com/series/learning-flask/flask-session-object
+* json : encodage dates
 
 ## Evolutions possibles
 * Archivage

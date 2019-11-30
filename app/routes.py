@@ -1,14 +1,17 @@
-from datetime import datetime, timedelta, date, MINYEAR
+import json
+import os
+from datetime import datetime, timedelta, time
 
 import pandas as pd
-from flask import flash, render_template, url_for, redirect
+from flask import flash, render_template, url_for, redirect, session
 from plotnine import *
 
-from app import app, db
-from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db, ParamName
+from app import app, db, params
+from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db, ParamName, Dashboard
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm, DashboardForm
+from app.params import DateEncoder
 
 
 @app.route("/")
@@ -178,48 +181,56 @@ def sheets():
 
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
+    # TODO check dates coherent
     form = DashboardForm()
+    form.courses.choices = []
+    form.students.choices = []
+    for course in db.session.query(Course).all():
+        displaytext = f"{course.label} du {course.startdate.date()} au " \
+                      f"{course.enddate.date()}, fichier {course.filename}"
+        form.courses.choices.append((str(course.id), displaytext))
+    for student in db.session.query(Student).all():
+        displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
+                      f"formation {student.course.label})"
+        form.students.choices.append((str(student.id), displaytext))
     if form.validate_on_submit():
-        val = "" if form.courses.data is None else ",".join(form.courses.data)
-        success = DbParam.setparam(name=ParamName.COURSES_FOR_DASHBOARD.value, value=val)
-        if not success:
-            flash("Erreur : Sélection de formations perdue")
-        val = "" if form.students.data is None else ",".join(form.students.data)
-        success = DbParam.setparam(name=ParamName.STUDENTS_FOR_DASHBOARD.value, value=val)
-        if not success:
-            flash("Erreur : Sélection d'étudiants perdue")
-        val = "" if form.startdate.data is None else form.startdate.data
-        success = DbParam.setparam(name=ParamName.STARTDATE_FOR_DASHBOARD.value, value=val)
-        if not success:
-            flash("Erreur : Sélection de date de départ perdue")
-        val = "" if form.enddate.data is None else form.enddate.data
-        success = DbParam.setparam(name=ParamName.ENDDATE_FOR_DASHBOARD.value, value=val)
-        if not success:
-            flash("Erreur : Sélection de date de départ perdue")
+        session["DASHBOARD_COURSE_IDS"] = [int(x) for x in form.courses.data]
+        session["DASHBOARD_STUDENT_IDS"] = [int(x) for x in form.students.data]
+        session["DASHBOARD_STARTDATE"] = form.startdate.data
+        session["DASHBOARD_STARTDATE"] = json.dumps(form.startdate.data, cls=DateEncoder)
+        session["DASHBOARD_ENDDATE"] = json.dumps(form.enddate.data, cls=DateEncoder)
+        # datetime not json serializable
+        # sdate = form.startdate.data
+        # session["DASHBOARD_STARTDATE"] = (sdate.year, sdate.month, sdate.day)
+        # edate = form.enddate.data
+        # session["DASHBOARD_ENDDATE"] = (edate.year, edate.month, edate.day)
         return redirect(url_for("dashboard_analyze"))
-
     else:
-        form.courses.choices = []
-        form.students.choices = []
-        for course in db.session.query(Course).all():
-            displaytext = f"{course.label} du {course.startdate.date()} au " \
-                          f"{course.enddate.date()}, fichier {course.filename}"
-            form.courses.choices.append((str(course.id), displaytext))
-        for student in db.session.query(Student).all():
-            displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
-                          f"formation {student.course.label}"
-            form.students.choices.append((str(student.id), displaytext))
-        form.startdate.data = date(year=MINYEAR, month=1, day=1)
-        form.enddate.data = date(year=2025, month=12, day=31)
+        form.startdate.data = params.getmindate()
+        form.enddate.data = params.getmaxdate()
     return render_template("dashboard.html", form=form)
 
 
 @app.route("/dashboard/analyze")
 def dashboard_analyze():
-    data1 = pd.DataFrame({
-        'poids': [10, 20, 30, 40, 50],
-        'taille': [1, 2, 4, 8, 16]
-    })
-    graph1 = (ggplot(data1) + geom_bar(aes(x="taille")))
-    graph1.save(filename="graph1.png", path="app/static", width=3, height=3)
-    return render_template("dashboard_analyze.html", graph=graph1)
+    graphpaths = list()
+    dashbrd = Dashboard.querycriteria()
+    answerstats = dashbrd.queryanswers()
+    curtime = datetime.now(tz=None)
+    suffix = f"{curtime.hour}{curtime.minute}{curtime.second}"
+    for qindex, answerstat in enumerate(answerstats):
+        data = pd.DataFrame({"x": answerstat.grades})
+        title = Dashboard.wraptext(text=answerstat.questiontext, maxlen=50)
+        gradegraph = (ggplot(data) +
+                      coord_cartesian(xlim=(0, 6)) +
+                      geom_bar(aes(x="x")) +
+                      labs(x="note", y="fréquence", title=title))
+        graphname = f"graph{qindex}_{suffix}.jpg"
+        gradegraph.save(filename=graphname, path=app.static_folder, width=5, height=5)
+        graphpaths.append(graphname)
+    # delete old graphs : cf https://stackabuse.com/python-list-files-in-a-directory/
+    with os.scandir(app.static_folder) as entries:
+        for entry in entries:
+            if entry.is_file() and entry.name[0:5] == "graph" and not entry.name.endswith(f"_{suffix}.jpg"):
+                os.remove(os.path.join(app.static_folder, entry.name))
+    return render_template("dashboard_analyze.html", dashboard=dashbrd, graphpaths=graphpaths)

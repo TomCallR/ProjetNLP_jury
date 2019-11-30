@@ -4,10 +4,32 @@
 
 <h1>Sélections</h1>
 
+<table>
+    <tr>
+        <td>
+            {% for course in dashboard.courses_list %}
+                {{ course.label }} ({{ course.startdate }}  - {{ course.enddate }})<br/>
+            {% endfor %}
+        </td>
+        <td>
+            {{ dashboard.startdate }}<br/>
+            {{ dashboard.enddate }}
+        </td>
+        <td>
+            {% for student in dashboard.students_list %}
+                {{ student.firstname }} {{ student.lastname }} {{ student.email }}<br/>
+            {% endfor %}
+        </td>
+    </tr>
+</table>
 
 <h1>Analyse quantitative</h1>
 
-<img src="{{ url_for('static', filename='graph1.png') }}"/>
+
+{% for graphpath in graphpaths %}
+
+<img src="{{ url_for('static', filename=graphpath) }}"/>
+{% endfor %}
 
 <h1>Analyse textuelle</h1>
 

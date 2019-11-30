@@ -1,24 +1,23 @@
+import dataclasses
+import math
 from datetime import date, datetime, MINYEAR, timedelta
 from enum import Enum
 from typing import Union, List
 
 import gspread
-from flask import flash
+from flask import flash, session
 from sqlalchemy import func, and_
 from sqlalchemy.orm import Query
 
 from app import db
 from app.api.apiutils import ApiAccess
 from app.database.models import Course, Student, Form, Question, Answer, Parameter
+from app.params import Const, NumAnswers, DateDecoder
 
 
 class ParamName(Enum):
     MAX_DAYS_SHEET_NOT_CHANGED = "MAX_DAYS_SHEET_NOT_CHANGED"
     MAX_DELTA_TO_ENDDATE = "MAX_DELTA_TO_ENDDATE"
-    COURSES_FOR_DASHBOARD = "COURSES_FOR_DASHBOARD"
-    STUDENTS_FOR_DASHBOARD = "STUDENTS_FOR_DASHBOARD"
-    STARTDATE_FOR_DASHBOARD = "STARTDATE_FOR_DASHBOARD"
-    ENDDATE_FOR_DASHBOARD = "ENDDATE_FOR_DASHBOARD"
 
 
 class Db:
@@ -456,3 +455,87 @@ class DbAnswer:
                                                 emailheader=emailheader, studentsdict=studentsdict,
                                                 questionsdict=questionsdict, answersdict=answersdict)
         return success
+
+
+@dataclasses.dataclass()
+class Dashboard:
+    courses_list: List[Course]
+    students_list: List[Student]
+    startdate: datetime
+    enddate: datetime
+
+    # forms: List[Form] = None
+
+    @classmethod
+    def querycriteria(cls):
+        course_ids = session["DASHBOARD_COURSE_IDS"]
+        if not course_ids:
+            courses = db.session.query(Course).all()
+        else:
+            courses = db.session.query(Course).filter(Course.id.in_(course_ids))
+        student_ids = session["DASHBOARD_STUDENT_IDS"]
+        if not student_ids:
+            students = db.session.query(Student).all()
+        else:
+            students = db.session.query(Student).filter(Student.id.in_(student_ids))
+        # sdate = session["DASHBOARD_STARTDATE"]
+        # startdate = date(year=sdate[0], month=sdate[1], day=sdate[2])
+        startdate = DateDecoder.decode(session["DASHBOARD_STARTDATE"])
+        # edate = session["DASHBOARD_ENDDATE"]
+        enddate = DateDecoder.decode(session["DASHBOARD_ENDDATE"])
+        instance = cls(courses_list=courses, students_list=students, startdate=startdate, enddate=enddate)
+        return instance
+
+    def queryanswers(self) -> List:
+        res = list()
+        course_ids = [] if self.courses_list is None else [c.id for c in self.courses_list]
+        forms = db.session.query(Form).filter(
+            Course.id.in_(course_ids),
+            Form.lastentrydt >= self.startdate,
+            Form.lastentrydt <= self.enddate
+        )
+        # for form in forms:
+        #     print(form.sheetlabel)
+        #     print(Form.lastentrydt >= self.startdate)
+        #     print(Form.lastentrydt <= self.enddate)
+        form_ids = [f.id for f in forms]
+        student_ids = [] if self.students_list is None else [s.id for s in self.students_list]
+        answers = db.session.query(Answer).filter(
+            Answer.form_id.in_(form_ids),
+            Answer.student_id.in_(student_ids)
+        ).order_by(Answer.question_id)
+        questions = list({a.question for a in answers})
+        questions.sort(key=(lambda q: q.id))
+        numquestions = [q for q in questions if q.isint == Const.DBTRUE]
+        for question in numquestions:
+            grades = [int(answer.text) for answer in answers.filter(Answer.question_id == question.id)]
+            gradecount = len(grades)
+            gradesum = 0
+            for grade in grades:
+                gradesum += grade
+            gradeaverage = gradesum / gradecount if gradecount > 0 else math.nan
+            res.append(NumAnswers(questiontext=question.text, grades=grades,
+                                  count=gradecount, average=gradeaverage))
+        return res
+
+    @classmethod
+    def wraptext(cls, text: str, maxlen: int) -> str:
+        words = text.split()
+        failure = len([w for w in words if len(w) > maxlen]) > 0
+        if failure:
+            res = text
+        else:
+            lines = []
+            while len(words) > 0:
+                line = [words[0]]
+                size = len(line[0])
+                words.pop(0)
+                while len(words) > 0 and (size + 1 + len(words[0]) <= maxlen):
+                    line.append(words[0])
+                    size = size + 1 + len(words[0])
+                    words.pop(0)
+                lines.append(line)
+            res = "\n".join([" ".join(line) for line in lines])
+        return res
+
+
