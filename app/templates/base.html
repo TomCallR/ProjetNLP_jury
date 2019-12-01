@@ -27,11 +27,9 @@
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}
-<ul>
+<ul class="list-group">
     {% for message in messages %}
-    <li>
-        <emph>{{ message }}</emph>
-    </li>
+    <li class="list-group-item list-group-item-info">{{ message }}</li>
     {% endfor %}
 </ul>
 {% endif %}

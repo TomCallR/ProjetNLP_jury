@@ -1,17 +1,16 @@
-import json
 import os
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 
 import pandas as pd
 from flask import flash, render_template, url_for, redirect, session
 from plotnine import *
 
-from app import app, db, params
-from app.database.dbutils import DbCourse, DbStudent, DbForm, DbParam, Db, ParamName, Dashboard
+from app import app, db
+from app.apputils import Const, Params, DTime
+from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm, DashboardForm
-from app.params import DateEncoder
 
 
 @app.route("/")
@@ -43,7 +42,7 @@ def basesetup():
 
 @app.route("/courses", methods=["GET"])
 def courses():
-    courses_list = Course.query.all()
+    courses_list = db.session.query(Course).all()
     return render_template("courses.html", courses=courses_list)
 
 
@@ -69,12 +68,12 @@ def course_delete():
     form = CourseDeleteForm()
     form.course.choices = []
     for course in courses_list:
-        displaytext = f"{course.label} du {course.startdate.date()} au " \
-                      f"{course.enddate.date()}, fichier {course.filename}"
+        fstartdate = course.startdate.date().strftime("%d/%m/%Y")
+        fenddate = course.enddate.date().strftime("%d/%m/%Y")
+        displaytext = f"{course.label} du {fstartdate} au {fenddate}, fichier {course.filename}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
-        success, message = DbCourse.delete(
-            courseid=form.course.data)
+        success, message = DbCourse.delete(courseid=form.course.data)
         flash(message)
         if success:
             return redirect("/courses")
@@ -83,13 +82,13 @@ def course_delete():
 
 @app.route("/students", methods=["GET"])
 def students():
-    students_list = Student.query.all()
+    students_list = db.session.query(Student).all()
     return render_template("students.html", students=students_list)
 
 
 @app.route("/student/create", methods=["GET", "POST"])
 def student_create():
-    courses_list = Course.query.all()
+    courses_list = db.session.query(Course).all()
     form = StudentCreateForm()
     form.course.choices = []
     for course in courses_list:
@@ -120,8 +119,7 @@ def student_delete():
         displaytext = f"Etudiant(e) {student.email}, en formation {student.course.label}"
         form.student.choices.append((str(student.id), displaytext))
     if form.validate_on_submit():
-        success, message = DbStudent.delete(
-            studentid=form.student.data)
+        success, message = DbStudent.delete(studentid=form.student.data)
         flash(message)
         if success:
             return redirect("/students")
@@ -133,50 +131,44 @@ def spreadsheets():
     # TODO améliorer apparence de col check
     form = SpreadsheetSelect()
     if form.validate_on_submit():
-        newmaxdelta = (datetime.now().date() - form.enddate.data)
-        success = DbParam.setparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value,
-                                   value=str(newmaxdelta.days))
-        if not success:
-            flash(f"Erreur : La date de fin de formation choisie n'a pas été sauvegardée")
+        if form.enddate.data is None:
+            flash("Erreur : Aucune date choisie, utilisation d'une valeur par défaut")
+        else:
+            delta = (datetime.now().date() - form.enddate.data)
+            newmaxdays = DTime.timedelta2days(delta)
+            session[Const.MAX_DAYS_TO_ENDDATE] = newmaxdays
         return redirect(url_for("sheets"))
     else:
-        success, maxdelta = DbParam.getparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value)
-        if not success:
-            maxdelta = "35"
-        minenddate = datetime.now() - timedelta(days=int(maxdelta))
+        maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE, default=35)
+        minenddate = datetime.now() - timedelta(days=int(maxdays))
         form.enddate.data = minenddate
-        spreadsheets_list = DbForm.queryspreadsheets(minenddate=form.enddate.data)
-    return render_template("spreadsheets.html", courses=spreadsheets_list, form=form)
+        okcourses = DbCourse.querycourses(minenddate=form.enddate.data)
+    return render_template("spreadsheets.html", courses=okcourses, form=form)
 
 
 @app.route("/sheets", methods=["GET", "POST"])
 def sheets():
     # TODO améliorer apparence de col check
     form = SheetsSelect()
-    success, maxdelta = DbParam.getparam(name=ParamName.MAX_DELTA_TO_ENDDATE.value)
-    if success:
-        minenddate = datetime.now() - timedelta(days=int(maxdelta))
-        if form.validate_on_submit():
-            # Saving number of days for friendiness, failure unimportant
-            DbParam.setparam(name=ParamName.MAX_DAYS_SHEET_NOT_CHANGED.value,
-                             value=str(form.daysnochange.data))
-            success = DbForm.updateall(minenddate=minenddate,
-                                       daysnochange=form.daysnochange.data)
-            if not success:
-                flash("Attention : Des erreurs dans la mise à jour, certaines réponses n'ont pas été mises à jour")
-            return redirect(url_for("sheets"))
+    maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE, default=35)
+    minenddate = datetime.now() - timedelta(days=int(maxdays))
+    if form.validate_on_submit():
+        # Saving number of days for friendiness, failure unimportant
+        if form.daysnochange.data is None:
+            daysnochange = Params.getsessionvar(Const.MAX_DAYS_SHEET_UNCHANGED, Const.DEFAULT_DAYS_UNCHANGED)
+            flash("Erreur : Aucune durée choisie, utilisation d'une valeur par défaut")
         else:
-            success, dbdaysnochange = DbParam.getparam(name=ParamName.MAX_DAYS_SHEET_NOT_CHANGED.value)
-            if not success:
-                dbdaysnochange = "15"
-            daysnochange = int(dbdaysnochange)
-            form.daysnochange.data = daysnochange
-            sheets_list = DbForm.querysheets(minenddate=minenddate,
-                                             daysnochange=form.daysnochange.data)
+            session[Const.MAX_DAYS_SHEET_UNCHANGED] = form.daysnochange.data
+            daysnochange = int(form.daysnochange.data)
+        success = DbForm.updateall(minenddate=minenddate, daysnochange=daysnochange)
+        if not success:
+            flash("Attention : Des erreurs dans la mise à jour, certaines réponses non mises à jour")
+        return redirect(url_for("sheets"))
     else:
-        flash("Erreur : Echec de la prise en compte de la date de fin de formation")
-        return redirect(url_for("spreadsheets"))
-    return render_template("sheets.html", gforms=sheets_list, form=form)
+        daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED, default=15)
+        form.daysnochange.data = daysnochange
+        oksheets = DbForm.queryforms(minenddate=minenddate, daysnochange=form.daysnochange.data)
+    return render_template("sheets.html", gforms=oksheets, form=form)
 
 
 @app.route("/dashboard", methods=["GET", "POST"])
@@ -196,18 +188,12 @@ def dashboard():
     if form.validate_on_submit():
         session["DASHBOARD_COURSE_IDS"] = [int(x) for x in form.courses.data]
         session["DASHBOARD_STUDENT_IDS"] = [int(x) for x in form.students.data]
-        session["DASHBOARD_STARTDATE"] = form.startdate.data
-        session["DASHBOARD_STARTDATE"] = json.dumps(form.startdate.data, cls=DateEncoder)
-        session["DASHBOARD_ENDDATE"] = json.dumps(form.enddate.data, cls=DateEncoder)
-        # datetime not json serializable
-        # sdate = form.startdate.data
-        # session["DASHBOARD_STARTDATE"] = (sdate.year, sdate.month, sdate.day)
-        # edate = form.enddate.data
-        # session["DASHBOARD_ENDDATE"] = (edate.year, edate.month, edate.day)
+        session["DASHBOARD_STARTDATE"] = DTime.datetimeencode(form.startdate.data)
+        session["DASHBOARD_ENDDATE"] = DTime.datetimeencode(form.enddate.data)
         return redirect(url_for("dashboard_analyze"))
     else:
-        form.startdate.data = params.getmindate()
-        form.enddate.data = params.getmaxdate()
+        form.startdate.data = DTime.min()
+        form.enddate.data = DTime.max()
     return render_template("dashboard.html", form=form)
 
 
@@ -231,6 +217,7 @@ def dashboard_analyze():
     # delete old graphs : cf https://stackabuse.com/python-list-files-in-a-directory/
     with os.scandir(app.static_folder) as entries:
         for entry in entries:
-            if entry.is_file() and entry.name[0:5] == "graph" and not entry.name.endswith(f"_{suffix}.jpg"):
-                os.remove(os.path.join(app.static_folder, entry.name))
+            if entry.is_file():
+                if entry.name.startswith("graph") and not entry.name.endswith(f"_{suffix}.jpg"):
+                    os.remove(os.path.join(app.static_folder, entry.name))
     return render_template("dashboard_analyze.html", dashboard=dashbrd, graphpaths=graphpaths)

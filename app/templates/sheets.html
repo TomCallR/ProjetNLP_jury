@@ -10,7 +10,7 @@
 <p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
     antérieure de <strong>{{ form.daysnochange.data }}</strong> jours au plus à la date de dernière lecture
     (i.e. date de mise à jour)</p>
-<p>Tous les onglets nouveaux non listés ici seront lus et les réponses intégrées en base de données</p>
+<p>Tous les onglets nouveaux inconnus, non listés ici, seront lus et les réponses intégrées en base de données</p>
 
 <table class="table">
     <thead>
@@ -28,32 +28,24 @@
     <tbody>
     {% for gform in gforms %}
     <tr>
-        {% if gform.Form.sheetid == "" %}
+        <td>{{ gform.check }}</td>
+        <td>{{ gform.course.id }}</td>
+        <td>{{ gform.course.label }}</td>
+        {% if gform.course.filename == "" %}
             <td>-</td>
         {% else %}
-            <td>{{ gform.check }}</td>
+            <td>{{ gform.course.filename }}</td>
         {% endif %}
-        <td>{{ gform.Course.id }}</td>
-        <td>{{ gform.Course.label }}</td>
-        {% if gform.Course.filename == "" %}
+        {% if gform.formscount == 0 %}
+            <td>-</td>
+            <td>-</td>
             <td>-</td>
         {% else %}
-            <td>{{ gform.Course.filename }}</td>
+            <td>{{ gform.form.sheetlabel }}</td>
+            <td>{{ gform.form.lastentrydt.date().strftime("%d/%m/%Y") }}</td>
+            <td>{{ gform.form.lastreaddt.date().strftime("%d/%m/%Y") }}</td>
         {% endif %}
-        {% if gform.Form.sheetid == "" %}
-            <td>-</td>
-        {% else %}
-            <td>{{ gform.Form.sheetlabel }}</td>
-        {% endif %}
-        {% if gform.Form is defined %}
-            <td>{{ gform.Form.lastentrydt.date() }}</td>
-            <td>{{ gform.Form.lastreaddt.date() }}</td>
-            <td>{{ gform.answercount }}</td>
-        {% else %}
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-        {% endif %}
+        <td>{{ gform.answerscount }}</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -65,6 +57,6 @@
     {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
-<p>Cette page existe pour permettre de mettre à jour des onglets anciens au besoin</p>
+<p>Cette page existe pour permettre de mettre à jour des onglets anciens si besoin</p>
 
 {% endblock %}

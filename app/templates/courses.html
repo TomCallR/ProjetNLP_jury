@@ -21,8 +21,8 @@
         <tr>
             <td>{{ course.id }}</td>
             <td>{{ course.label }}</td>
-            <td>{{ course.startdate.date() }}</td>
-            <td>{{ course.enddate.date() }}</td>
+            <td>{{ course.startdate.date().strftime("%d/%m/%Y") }}</td>
+            <td>{{ course.enddate.date().strftime("%d/%m/%Y") }}</td>
             <td>{{ course.filename }}</td>
             <td>{{ course.fileid }}</td>
         </tr>
@@ -30,6 +30,7 @@
         </tbody>
     </table>
 </div>
+
 <a class="btn btn-warning" href="{{ url_for('course_create') }}">Ajouter</a>
 <a class="btn btn-warning" href="{{ url_for('course_delete') }}">Supprimer</a>
 

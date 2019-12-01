@@ -1,29 +1,45 @@
 import os
+from typing import List
 
 import gspread
 from flask import flash
+from oauth2client.service_account import ServiceAccountCredentials
 
 from app import app
-from oauth2client.service_account import ServiceAccountCredentials
 
 
 class ApiAccess:
-
     API_SCOPE = ["https://spreadsheets.google.com/feeds",
                  "https://www.googleapis.com/auth/drive"]
-    CREDENTIALS_FILE = "private/api_credentials.json"            # TODO put in a conf w/ complete path : dangerous on windows
+    CREDENTIALS_FILE = "private/api_credentials.json"  # TODO put in a conf w/ complete path : dangerous on windows
     TIMESTAMP_HEADER = "Horodateur"
     EMAIL_HEADER = "Adresse e-mail"
 
     def __init__(self):
         self.client = None
 
+    @classmethod
+    def getwsheetdata(cls, wsheet: gspread.models.Worksheet) -> List[dict]:
+        res = []
+        if wsheet is not None:
+            try:
+                res = wsheet.get_all_records()
+            except IndexError:
+                flash(f"Erreur : Onglet {wsheet.title} du fichier {wsheet.spreadsheet.title} vide")
+                pass
+        return res
+
     def initclient(self):
         projectpath, appdir = os.path.split(app.root_path)
         credfile = os.path.join(projectpath, self.CREDENTIALS_FILE)
-        # TODO add try except (file not found, no authorization)
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            filename=credfile, scopes=self.API_SCOPE)
+        creds = None
+        try:
+            creds = ServiceAccountCredentials.from_json_keyfile_name(
+                filename=credfile, scopes=self.API_SCOPE)
+        except ValueError:
+            flash("Erreur : Type de credentials différent de `SERVICE_ACCOUNT`")
+        except KeyError:
+            flash("Erreur : Erreur d'index lors de l'obtention de l'accès à l'API Google")
         self.client = gspread.authorize(creds)
 
     def getfile(self, fileid: str) -> (bool, gspread.models.Spreadsheet):
@@ -32,11 +48,6 @@ class ApiAccess:
             self.initclient()
         try:
             spreadsheet = self.client.open_by_key(key=fileid)
-            success = True
-        except gspread.exceptions.SpreadsheetNotFound as ex:
-            success = False
+        except gspread.exceptions.SpreadsheetNotFound:
             flash(f"Erreur : Fichier id {fileid} non trouvé")
-        return success, spreadsheet
-
-
-
+        return spreadsheet

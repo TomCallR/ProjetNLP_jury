@@ -1,23 +1,17 @@
 import dataclasses
 import math
-from datetime import date, datetime, MINYEAR, timedelta
-from enum import Enum
-from typing import Union, List
+from datetime import date, datetime, timedelta
+from typing import List
 
 import gspread
-from flask import flash, session
-from sqlalchemy import func, and_
+from flask import flash
+from sqlalchemy import func
 from sqlalchemy.orm import Query
 
 from app import db
 from app.api.apiutils import ApiAccess
-from app.database.models import Course, Student, Form, Question, Answer, Parameter
-from app.params import Const, NumAnswers, DateDecoder
-
-
-class ParamName(Enum):
-    MAX_DAYS_SHEET_NOT_CHANGED = "MAX_DAYS_SHEET_NOT_CHANGED"
-    MAX_DELTA_TO_ENDDATE = "MAX_DELTA_TO_ENDDATE"
+from app.apputils import Const, NumAnswers, Params, DTime
+from app.database.models import Course, Student, Form, Question, Answer
 
 
 class Db:
@@ -31,48 +25,22 @@ class Db:
         return coursecount >= 0
 
 
-class DbParam:
+@dataclasses.dataclass
+class CourseSummary:
+    check: bool = False
+    course: Course = None
+    formscount: int = 0
+    lastentrydt: datetime = None
+    lastreaddt: datetime = None
 
-    @classmethod
-    def getparam(cls, name: str) -> (bool, str):
-        success = False
-        param = db.session.query(Parameter).filter(Parameter.name == name).first()
-        if param is None:
-            try:
-                res = str(getattr(ApiAccess, name))
-                success = True
-            except Exception as ex:
-                res = None
-                success = False
-        else:
-            res = param.value
-            success = True
-        return success, res
 
-    @classmethod
-    def setparam(cls, name: str, value: Union[int, str]) -> bool:
-        success = False
-        param = db.session.query(Parameter).filter(Parameter.name == name).first()
-        if param is None:
-            newparam = Parameter(name=name, value=str(value))
-            try:
-                db.session.add(newparam)
-                db.session.commit()
-                success = True
-            except Exception as ex:
-                db.session.rollback()
-                success = False
-                flash(f"Erreur : Impossible d'ajouter le paramètre {name}")
-        else:
-            param.value = str(value)
-            try:
-                db.session.commit()
-                success = True
-            except Exception as ex:
-                db.session.rollback()
-                success = False
-                flash(f"Erreur : Impossible de mettre à jour le paramètre {name}")
-        return success
+@dataclasses.dataclass
+class FormSummary:
+    check: bool = False
+    course: Course = None
+    formscount: int = 0
+    form: Form = None
+    answerscount: int = 0
 
 
 class DbCourse:
@@ -87,6 +55,34 @@ class DbCourse:
         return courses
 
     @classmethod
+    def querycourses(cls, minenddate: datetime) -> List[CourseSummary]:
+        today = datetime.now()
+        limitdate = DTime.min() if minenddate is None else minenddate
+        courses = db.session.query(Course).order_by(Course.id)
+        res = []
+        for course in courses:
+            check = (course.filename != "") and (course.enddate > limitdate) \
+                    and (course.startdate <= today)
+            formscount = len(course.forms)
+            lastentrydt = DTime.min()
+            lastreaddt = DTime.min()
+            for form in course.forms:
+                if form.lastentrydt and form.lastentrydt > lastentrydt:
+                    lastentrydt = form.lastentrydt
+                if form.lastreaddt and form.lastreaddt > lastreaddt:
+                    lastreaddt = form.lastreaddt
+            newcourse = CourseSummary(
+                check=check,
+                course=course,
+                formscount=formscount,
+                lastentrydt=lastentrydt,
+                lastreaddt=lastreaddt
+            )
+            res.append(newcourse)
+        res.sort(key=(lambda c: (1 - int(c.check), -c.formscount, c.course.id)))
+        return res
+
+    @classmethod
     def insert(cls, label: str, startdate: date, enddate: date, fileid: str) -> (bool, str):
         # check fields all filled
         success = (label is not None and label != "")
@@ -97,7 +93,7 @@ class DbCourse:
         if success:
             success = (enddate is not None)
             message = "Erreur : La date de fin n'est pas renseignée" if not success else ""
-        if success:  # TODO pas forcément au début
+        if success:
             success = (fileid is not None and fileid != "")
             message = "Erreur : Le fichier des formulaires n'est pas renseigné" if not success else ""
         # check dates coherent
@@ -106,13 +102,15 @@ class DbCourse:
             message = "Erreur : La date de début est postérieure à la date de fin" if not success else ""
         # check fileid does not already exist in Courses
         if success:
-            success = (Course.query.filter_by(fileid=fileid).count() == 0)
+            success = (db.session.query(Course).filter(Course.fileid == fileid).count() == 0)
             message = "Erreur : Une formation avec le même id de fichier existe déjà" if not success else ""
         if success:
             # try to read file
             apiaccess = ApiAccess()
-            success, spreadsheet = apiaccess.getfile(fileid)
-            if success:
+            spreadsheet = apiaccess.getfile(fileid)
+            if spreadsheet is None:
+                success = False
+            else:
                 # insert new course
                 try:
                     metadata = spreadsheet.fetch_sheet_metadata()
@@ -122,6 +120,10 @@ class DbCourse:
                     db.session.add(newcourse)
                     db.session.commit()
                     message = f"Succès : Formation {newcourse.label} ajoutée"
+                except PermissionError:
+                    db.session.rollback()
+                    success = False
+                    message = "Erreur : Accès refusé (avez-vous partagé le fichier avec le mail du credential ?)"
                 except Exception as ex:
                     db.session.rollback()
                     success = False
@@ -138,7 +140,7 @@ class DbCourse:
             success = courseid.isnumeric()
             message = "Erreur : L'id formation n'est pas numérique" if not success else ""
         if success:
-            coursetodel = Course.query.get(int(courseid))
+            coursetodel = db.session.query(Course).get(int(courseid))
             success = (coursetodel is not None)
             message = "Erreur : Formation inexistante" if not success else ""
         if success:
@@ -227,6 +229,42 @@ class DbStudent:
 class DbForm:
 
     @classmethod
+    def queryforms(cls, minenddate: datetime, daysnochange: int) -> List:
+        limitdate = DTime.min() if minenddate is None else minenddate
+        courses = db.session.query(Course).filter(
+            Course.filename != "",
+            Course.enddate > limitdate,
+            Course.startdate <= datetime.now()
+        ).order_by(Course.id)
+        res = []
+        for course in courses:
+            formscount = len(course.forms)
+            if formscount == 0:
+                newform = FormSummary(
+                    check=True,
+                    course=course,
+                    formscount=formscount
+                )
+                res.append(newform)
+            else:
+                for form in course.forms:
+                    check = (form.lastentrydt is None) or (form.lastreaddt is None)
+                    if not check:
+                        check = (DTime.timedelta2days(form.lastreaddt - form.lastentrydt) <= daysnochange)
+                    studentsdict = {answer.student_id: 1 for answer in form.answers}
+                    answerscount = len(studentsdict.keys())
+                    newform = FormSummary(
+                        check=check,
+                        course=course,
+                        formscount=formscount,
+                        form=form,
+                        answerscount=answerscount
+                    )
+                    res.append(newform)
+        res.sort(key=(lambda f: (1 - int(f.check), -f.formscount, f.course.id)))  # Beware of form None
+        return res
+
+    @classmethod
     def createfromsheet(cls, course: Course, wsheet: gspread.models.Worksheet) -> bool:
         success = False
         if wsheet is not None:
@@ -247,71 +285,6 @@ class DbForm:
                       f"{course.label}, fichier {course.filename}). Exception : {ex}")
                 success = False
         return success
-
-    @classmethod
-    def queryspreadsheets(cls, minenddate: datetime) -> Query:
-        today = datetime.now()
-        xminenddate = date(MINYEAR, 1, 1) if minenddate is None else minenddate
-        # subquery Form aggregating data
-        formsubquery = db.session.query(
-            Form.course_id.label("course_id"),
-            func.count(Form.id).label("sheetcount"),
-            func.max(Form.lastentrydt).label("lastentrydt"),
-            func.max(Form.lastreaddt).label("lastreaddt")
-        ).group_by(
-            Form.course_id
-        ).subquery()
-        # join with Course
-        res = db.session.query(
-            Course,
-            formsubquery,
-            (and_(Course.filename != "",
-                  Course.enddate > xminenddate,
-                  Course.startdate <= today)).label("check")
-        ).outerjoin(
-            formsubquery,
-            Course.id == formsubquery.c.course_id
-        ).order_by(
-            ((Course.enddate > xminenddate) + (Course.startdate > today)),
-            Course.startdate
-        )
-        return res
-
-    @classmethod
-    def querysheets(cls, minenddate: datetime, daysnochange: int) -> Query:
-        deltadays = timedelta(days=daysnochange)
-        # subquery Answer aggregating data
-        answersubquery = db.session.query(
-            Answer.form_id.label("form_id"),
-            Answer.student_id.label("student_id")
-        ).group_by(
-            Answer.form_id,
-            Answer.student_id
-        ).subquery()
-        # join with Course and Form
-        res = db.session.query(
-            Course,
-            Form,
-            func.count(answersubquery.c.student_id).label("answercount"),
-            ((Form.lastreaddt - Form.lastentrydt) <= deltadays).label("check"),
-        ).outerjoin(
-            Form,
-            Course.id == Form.course_id
-        ).outerjoin(
-            answersubquery,
-            Form.id == answersubquery.c.form_id
-        ).group_by(
-            Course.id,
-            Form.id
-        ).filter(
-            Course.filename != "",
-            Course.enddate > minenddate,
-            Course.startdate <= datetime.now()
-        ).order_by(
-            Course.startdate,
-            Form.id
-        )
-        return res
 
     @classmethod
     def updatedates(cls, gform: Form) -> bool:
@@ -346,9 +319,9 @@ class DbForm:
             courses_list = DbCourse.querycurrent(minenddate=minenddate)
             apiaccess = ApiAccess()
             for course in courses_list:
-                success, file = apiaccess.getfile(fileid=course.fileid)
-                if not success:
-                    success = True  # there might be success with other files
+                file = apiaccess.getfile(fileid=course.fileid)
+                if file is None:
+                    flash(f"Erreur : Fichier {course.label} non trouvé")
                 else:
                     wsheets = file.worksheets()
                     for wsheet in wsheets:
@@ -366,8 +339,8 @@ class DbForm:
             gformsdict = {gform.sheetid: gform for gform in course.forms}
             gform = gformsdict[wsheet.id]
             if gform.lastentrydt >= gform.lastreaddt - timedelta(days=daysnochange):
-                wsheetdata = wsheet.get_all_records()
-                if (wsheetdata is not None) and (wsheetdata != {}):
+                wsheetdata = ApiAccess.getwsheetdata(wsheet)
+                if wsheetdata:
                     DbQuestion.createfromsheet(course=course, wsheetdata=wsheetdata)
                     success = DbAnswer.updatefromsheet(gform=gform, wsheetdata=wsheetdata)
                     if success:
@@ -389,22 +362,21 @@ class DbForm:
 class DbQuestion:
 
     @classmethod
-    def createfromsheet(cls, course: Course, wsheetdata: dict):
-        if wsheetdata is not None and wsheetdata != []:
-            existingquestions = [question.text.strip() for question in course.questions]
-            for index, text in enumerate(wsheetdata[0].keys()):
-                if text.strip() in [ApiAccess.TIMESTAMP_HEADER, ApiAccess.EMAIL_HEADER]:
-                    pass
-                elif text.strip() not in existingquestions:
-                    numint, numstr = 0, 0
-                    for row in wsheetdata:
-                        if (type(row[text]) == int) or (row[text].isnumeric()):
-                            numint += 1
-                        else:
-                            numstr += 1
-                    isint = "Y" if numstr == 0 else "N"
-                    newquestion = Question(isint=isint, text=text, course_id=Course.id)
-                    course.questions.append(newquestion)
+    def createfromsheet(cls, course: Course, wsheetdata: List[dict]):
+        existingquestions = [question.text.strip() for question in course.questions]
+        for text in wsheetdata[0].keys():
+            if text.strip() in [ApiAccess.TIMESTAMP_HEADER, ApiAccess.EMAIL_HEADER]:
+                pass
+            elif text.strip() not in existingquestions:
+                numint, numstr = 0, 0
+                for row in wsheetdata:
+                    if (type(row[text]) == int) or (row[text].isnumeric()):
+                        numint += 1
+                    else:
+                        numstr += 1
+                isint = Const.DBTRUE if numstr == 0 else Const.DBFALSE
+                newquestion = Question(isint=isint, text=text, course_id=Course.id)
+                course.questions.append(newquestion)
 
 
 class DbAnswer:
@@ -435,9 +407,9 @@ class DbAnswer:
         return success
 
     @classmethod
-    def updatefromsheet(cls, gform: Form, wsheetdata: dict) -> bool:
+    def updatefromsheet(cls, gform: Form, wsheetdata: List[dict]) -> bool:
         success = False
-        if gform is not None and wsheetdata is not None and wsheetdata != []:
+        if gform is not None and wsheetdata != []:
             tsheader = ApiAccess.TIMESTAMP_HEADER
             emailheader = ApiAccess.EMAIL_HEADER
             success = ((tsheader in wsheetdata[0]) and (emailheader in wsheetdata[0]))
@@ -464,25 +436,22 @@ class Dashboard:
     startdate: datetime
     enddate: datetime
 
-    # forms: List[Form] = None
-
     @classmethod
     def querycriteria(cls):
-        course_ids = session["DASHBOARD_COURSE_IDS"]
+        course_ids = Params.getsessionvar(Const.DASHBOARD_COURSE_IDS, default=[])
         if not course_ids:
             courses = db.session.query(Course).all()
         else:
             courses = db.session.query(Course).filter(Course.id.in_(course_ids))
-        student_ids = session["DASHBOARD_STUDENT_IDS"]
+        student_ids = Params.getsessionvar(Const.DASHBOARD_STUDENT_IDS, default=[])
         if not student_ids:
             students = db.session.query(Student).all()
         else:
             students = db.session.query(Student).filter(Student.id.in_(student_ids))
-        # sdate = session["DASHBOARD_STARTDATE"]
-        # startdate = date(year=sdate[0], month=sdate[1], day=sdate[2])
-        startdate = DateDecoder.decode(session["DASHBOARD_STARTDATE"])
-        # edate = session["DASHBOARD_ENDDATE"]
-        enddate = DateDecoder.decode(session["DASHBOARD_ENDDATE"])
+        jsonstartdate = Params.getsessionvar(Const.DASHBOARD_STARTDATE, default=[2000, 1, 1])
+        startdate = DTime.datetimedecode(jsonstartdate)
+        jsonenddate = Params.getsessionvar(Const.DASHBOARD_ENDDATE, default=[2100, 1, 1])
+        enddate = DTime.datetimedecode(jsonenddate)
         instance = cls(courses_list=courses, students_list=students, startdate=startdate, enddate=enddate)
         return instance
 
@@ -494,10 +463,6 @@ class Dashboard:
             Form.lastentrydt >= self.startdate,
             Form.lastentrydt <= self.enddate
         )
-        # for form in forms:
-        #     print(form.sheetlabel)
-        #     print(Form.lastentrydt >= self.startdate)
-        #     print(Form.lastentrydt <= self.enddate)
         form_ids = [f.id for f in forms]
         student_ids = [] if self.students_list is None else [s.id for s in self.students_list]
         answers = db.session.query(Answer).filter(
@@ -537,5 +502,3 @@ class Dashboard:
                 lines.append(line)
             res = "\n".join([" ".join(line) for line in lines])
         return res
-
-

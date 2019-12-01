@@ -7,7 +7,9 @@
 <h1>Liste des fichiers</h1>
 
 <p>Dans cette liste, seules sont sélectionnées les formations en cours après le
-    <strong>{{ form.enddate.data.date() }}</strong> et qui ne débutent pas dans le futur</p>
+    <strong>{{ form.enddate.data.date().strftime("%d/%m/%Y") }}</strong> et qui ne débutent pas dans le futur</p>
+<p>La date de dernière saisie est issue de la donnée horodateur la plus récente parmi les entrées connues dans le fichier</p>
+<p>La date de dernière lecture est la plus récente date de lecture par ce programme des données du fichier</p>
 
 <table class="table">
     <thead>
@@ -26,22 +28,23 @@
     <tbody>
     {% for course in courses %}
     <tr>
+<!--        {% if course.check %}-->
+<!--            <td><span class="glyphicon glyphicon-ok"></span></td>-->
+<!--        {% else %}-->
+<!--            <td><span class="glyphicon">&#xe014;</span></td>-->
+<!--        {% endif %}-->
         <td>{{ course.check }}</td>
-        <td>{{ course.Course.id }}</td>
-        <td>{{ course.Course.label }}</td>
-        <td>{{ course.Course.startdate.date() }}</td>
-        <td>{{ course.Course.enddate.date() }}</td>
-        {% if course.Course.filename == "" %}
-            <td>-</td>
-        {% else %}
-            <td>{{ course.Course.filename }}</td>
-        {% endif %}
-        {% if course.lastentrydt == course.lastreaddt %}
+        <td>{{ course.course.id }}</td>
+        <td>{{ course.course.label }}</td>
+        <td>{{ course.course.startdate.date().strftime("%d/%m/%Y") }}</td>
+        <td>{{ course.course.enddate.date().strftime("%d/%m/%Y") }}</td>
+        <td>{{ course.course.filename }}</td>
+        {% if course.formscount == 0 %}
             <td>-</td>
             <td>-</td>
         {% else %}
-            <td>{{ course.lastentrydt.date() }}</td>
-            <td>{{ course.lastreaddt.date() }}</td>
+            <td>{{ course.lastentrydt.date().strftime("%d/%m/%Y") }}</td>
+            <td>{{ course.lastreaddt.date().strftime("%d/%m/%Y") }}</td>
         {% endif %}
     </tr>
     {% endfor %}

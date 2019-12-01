@@ -10,7 +10,7 @@ class Course(db.Model):
     startdate = db.Column(db.DateTime, nullable=False)
     enddate = db.Column(db.DateTime, nullable=False)
     fileid = db.Column(db.String(200), nullable=False, unique=True)
-    filename = db.Column(db.String(120), nullable=False)        # TODO allow blank string
+    filename = db.Column(db.String(120), nullable=False)
     filetz = db.Column(db.String(40), nullable=False)
 
     students = db.relationship("Student", back_populates="course")
@@ -95,11 +95,3 @@ class Answer(db.Model):
     def __repr__(self):
         return f"<Answer {self.id} {self.timestamp} {self.text}>"
 
-
-# Parameter : stores user preferred values for some parameters, no link to other classes
-class Parameter(db.Model):
-    __tablename__ = "Parameters"
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False, unique=True)
-    value = db.Column(db.String(1000), nullable=True)
