@@ -7,10 +7,12 @@ import gspread
 from flask import flash
 from sqlalchemy import func
 from sqlalchemy.orm import Query
+from textblob import Blobber
+from textblob_fr import PatternTagger, PatternAnalyzer
 
 from app import db
 from app.api.apiutils import ApiAccess
-from app.apputils import Const, NumAnswers, Params, DTime
+from app.apputils import Const, NumAnswer, Params, DTime, TextAnswer
 from app.database.models import Course, Student, Form, Question, Answer
 
 
@@ -433,6 +435,8 @@ class DbAnswer:
 class Dashboard:
     courses_list: List[Course]
     students_list: List[Student]
+    forms_list: List[Form]
+    questions_list: List[Question]
     startdate: datetime
     enddate: datetime
 
@@ -441,46 +445,80 @@ class Dashboard:
         course_ids = Params.getsessionvar(Const.DASHBOARD_COURSE_IDS, default=[])
         if not course_ids:
             courses = db.session.query(Course).all()
+            course_ids = [c.id for c in courses]
         else:
-            courses = db.session.query(Course).filter(Course.id.in_(course_ids))
+            courses = db.session.query(Course).filter(Course.id.in_(course_ids)).all()
         student_ids = Params.getsessionvar(Const.DASHBOARD_STUDENT_IDS, default=[])
         if not student_ids:
             students = db.session.query(Student).all()
+            student_ids = [s.id for s in students]
         else:
-            students = db.session.query(Student).filter(Student.id.in_(student_ids))
+            students = db.session.query(Student).filter(Student.id.in_(student_ids)).all()
         jsonstartdate = Params.getsessionvar(Const.DASHBOARD_STARTDATE, default=[2000, 1, 1])
         startdate = DTime.datetimedecode(jsonstartdate)
         jsonenddate = Params.getsessionvar(Const.DASHBOARD_ENDDATE, default=[2100, 1, 1])
         enddate = DTime.datetimedecode(jsonenddate)
-        instance = cls(courses_list=courses, students_list=students, startdate=startdate, enddate=enddate)
+        # prepare forms and questions too
+        forms = db.session.query(Form).filter(
+            Form.course_id.in_(course_ids),
+            Form.lastentrydt >= startdate,
+            Form.lastentrydt <= enddate
+        ).order_by(Form.id).all()
+        questions = db.session.query(Question).filter(
+            Question.course_id.in_(course_ids)
+        ).order_by(Question.id).all()
+        # create instance loaded with data
+        instance = cls(courses_list=courses, students_list=students, startdate=startdate, enddate=enddate,
+                       forms_list=forms, questions_list=questions)
         return instance
 
-    def queryanswers(self) -> List:
+    def querynumanswers(self) -> List[NumAnswer]:
         res = list()
-        course_ids = [] if self.courses_list is None else [c.id for c in self.courses_list]
-        forms = db.session.query(Form).filter(
-            Course.id.in_(course_ids),
-            Form.lastentrydt >= self.startdate,
-            Form.lastentrydt <= self.enddate
-        )
-        form_ids = [f.id for f in forms]
-        student_ids = [] if self.students_list is None else [s.id for s in self.students_list]
+        form_ids = [f.id for f in self.forms_list]
+        student_ids = [s.id for s in self.students_list]
+        questions = [q for q in self.questions_list if q.isint == Const.DBTRUE]
+        question_ids = [q.id for q in questions]
         answers = db.session.query(Answer).filter(
             Answer.form_id.in_(form_ids),
-            Answer.student_id.in_(student_ids)
+            Answer.student_id.in_(student_ids),
+            Answer.question_id.in_(question_ids)
         ).order_by(Answer.question_id)
-        questions = list({a.question for a in answers})
-        questions.sort(key=(lambda q: q.id))
-        numquestions = [q for q in questions if q.isint == Const.DBTRUE]
-        for question in numquestions:
+        #
+        for question in questions:
             grades = [int(answer.text) for answer in answers.filter(Answer.question_id == question.id)]
             gradecount = len(grades)
+            grademax = 0
             gradesum = 0
             for grade in grades:
+                grademax = grade if grade > grademax else grademax
                 gradesum += grade
             gradeaverage = gradesum / gradecount if gradecount > 0 else math.nan
-            res.append(NumAnswers(questiontext=question.text, grades=grades,
-                                  count=gradecount, average=gradeaverage))
+            res.append(NumAnswer(questiontext=question.text, grades=grades,
+                                 max=grademax, count=gradecount, average=gradeaverage))
+        return res
+
+    def querytextanswers(self) -> List[TextAnswer]:
+        res = list()
+        form_ids = [f.id for f in self.forms_list]
+        student_ids = [s.id for s in self.students_list]
+        questions = [q for q in self.questions_list if q.isint == Const.DBFALSE]
+        question_ids = [q.id for q in questions]
+        answers = db.session.query(Answer).filter(
+            Answer.form_id.in_(form_ids),
+            Answer.student_id.in_(student_ids),
+            Answer.question_id.in_(question_ids)
+        ).order_by(Answer.question_id)
+        #
+        # see example https://github.com/sloria/textblob-fr
+        tb = Blobber(pos_tagger=PatternTagger(), analyzer=PatternAnalyzer())
+        for question in questions:
+            qvalues = list()
+            texts = [answer.text for answer in answers.filter(Answer.question_id == question.id)]
+            for text in texts:
+                qblob = tb(question.text)
+                qsentiment = qblob.sentiment
+                qvalues.append(qsentiment)
+            res.append(TextAnswer(questiontext=question.text, sentiment=qvalues))
         return res
 
     @classmethod

@@ -6,11 +6,12 @@
 
 <h1>Liste des onglets connus en base de données</h1>
 
-<p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation</p>
+<p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation ou à une
+    formation sans onglet connu.</p>
 <p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
     antérieure de <strong>{{ form.daysnochange.data }}</strong> jours au plus à la date de dernière lecture
-    (i.e. date de mise à jour)</p>
-<p>Tous les onglets nouveaux inconnus, non listés ici, seront lus et les réponses intégrées en base de données</p>
+    (i.e. date de mise à jour).</p>
+<p>Tous les onglets nouveaux inconnus, non listés ici, seront lus et les réponses intégrées en base de données.</p>
 
 <table class="table">
     <thead>
@@ -57,6 +58,6 @@
     {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
-<p>Cette page existe pour permettre de mettre à jour des onglets anciens si besoin</p>
+<p>Cette page existe pour permettre de mettre à jour des onglets anciens si besoin.</p>
 
 {% endblock %}

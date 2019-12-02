@@ -1,8 +1,7 @@
 import dataclasses
-import json
 import math
 from datetime import date, datetime, timedelta
-from typing import List
+from typing import List, Union, Tuple
 
 from flask import session
 
@@ -58,10 +57,13 @@ class DTime:
         return res
 
     @classmethod
-    def datetimeencode(cls, daytime: datetime) -> List[int]:
+    def datetimeencode(cls, daytime: Union[date, datetime]) -> List[int]:
         res = []
         if daytime is not None:
-            res = [daytime.year, daytime.month, daytime.day, daytime.hour, daytime.minute, daytime.second]
+            if isinstance(daytime, date):
+                res = [daytime.year, daytime.month, daytime.day, 0, 0, 0]
+            elif isinstance(daytime, datetime):
+                res = [daytime.year, daytime.month, daytime.day, daytime.hour, daytime.minute, daytime.second]
         return res
 
     @classmethod
@@ -73,10 +75,25 @@ class DTime:
                                hour=daytime[3], minute=daytime[4], second=daytime[5])
         return res
 
+    @classmethod
+    def formatdate(cls, daytime: datetime) -> str:
+        res = ""
+        if daytime is not None:
+            res = daytime.date().strftime("%d/%m/%Y")
+        return res
+
 
 @dataclasses.dataclass
-class NumAnswers:
+class NumAnswer:
     questiontext: str
     grades: List[int]
+    max: int
     count: int
     average: float
+
+
+@dataclasses.dataclass
+class TextAnswer:
+    questiontext: str
+    sentiment: List[Tuple[float]]
+

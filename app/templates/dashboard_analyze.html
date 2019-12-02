@@ -1,27 +1,18 @@
+{% from "macros.html" import render_field %}
+
 {% extends "base.html" %}
 
 {% block content %}
 
-<h1>Sélections</h1>
+<h1>Rappel des sélections</h1>
 
-<table>
-    <tr>
-        <td>
-            {% for course in dashboard.courses_list %}
-                {{ course.label }} ({{ course.startdate }}  - {{ course.enddate }})<br/>
-            {% endfor %}
-        </td>
-        <td>
-            {{ dashboard.startdate }}<br/>
-            {{ dashboard.enddate }}
-        </td>
-        <td>
-            {% for student in dashboard.students_list %}
-                {{ student.firstname }} {{ student.lastname }} {{ student.email }}<br/>
-            {% endfor %}
-        </td>
-    </tr>
-</table>
+<form action="" class="form" method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ render_field(form.courses, class='form-control') }}
+    {{ render_field(form.startdate, class='form-control') }}
+    {{ render_field(form.enddate, class='form-control') }}
+    {{ render_field(form.students, class='form-control') }}
+</form>
 
 <h1>Analyse quantitative</h1>
 

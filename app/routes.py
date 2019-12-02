@@ -11,6 +11,19 @@ from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm, DashboardForm
+import os
+from datetime import datetime, timedelta
+
+import pandas as pd
+from flask import flash, render_template, url_for, redirect, session
+from plotnine import *
+
+from app import app, db
+from app.apputils import Const, Params, DTime
+from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
+from app.database.models import Course, Student
+from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
+    SheetsSelect, InitForm, DashboardForm
 
 
 @app.route("/")
@@ -68,9 +81,8 @@ def course_delete():
     form = CourseDeleteForm()
     form.course.choices = []
     for course in courses_list:
-        fstartdate = course.startdate.date().strftime("%d/%m/%Y")
-        fenddate = course.enddate.date().strftime("%d/%m/%Y")
-        displaytext = f"{course.label} du {fstartdate} au {fenddate}, fichier {course.filename}"
+        displaytext = f"{course.label} du {DTime.formatdate(course.startdate)} au " \
+                      f"{DTime.formatdate(course.enddate)}, fichier {course.filename}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbCourse.delete(courseid=form.course.data)
@@ -92,8 +104,8 @@ def student_create():
     form = StudentCreateForm()
     form.course.choices = []
     for course in courses_list:
-        displaytext = f"{course.label} du {course.startdate} au " \
-                      f"{str(course.startdate)}, fichier {course.filename}"
+        displaytext = f"{course.label} du {DTime.formatdate(course.startdate)} au " \
+                      f"{DTime.formatdate(course.enddate)}, fichier {course.filename}"
         form.course.choices.append((str(course.id), displaytext))
     if form.validate_on_submit():
         success, message = DbStudent.insert(
@@ -116,7 +128,8 @@ def student_delete():
     form = StudentDeleteForm()
     form.student.choices = []
     for student in students_list:
-        displaytext = f"Etudiant(e) {student.email}, en formation {student.course.label}"
+        displaytext = f"Etudiant(e) {student.firstname} {student.lastname} (email {student.email}, " \
+                      f"formation {student.course.label})"
         form.student.choices.append((str(student.id), displaytext))
     if form.validate_on_submit():
         success, message = DbStudent.delete(studentid=form.student.data)
@@ -165,7 +178,7 @@ def sheets():
             flash("Attention : Des erreurs dans la mise à jour, certaines réponses non mises à jour")
         return redirect(url_for("sheets"))
     else:
-        daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED, default=15)
+        daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED, default=Const.DEFAULT_DAYS_UNCHANGED)
         form.daysnochange.data = daysnochange
         oksheets = DbForm.queryforms(minenddate=minenddate, daysnochange=form.daysnochange.data)
     return render_template("sheets.html", gforms=oksheets, form=form)
@@ -199,25 +212,44 @@ def dashboard():
 
 @app.route("/dashboard/analyze")
 def dashboard_analyze():
-    graphpaths = list()
     dashbrd = Dashboard.querycriteria()
-    answerstats = dashbrd.queryanswers()
+    # display choices in a form as a reminder
+    form = DashboardForm()
+    form.courses.choices = []
+    form.students.choices = []
+    for course in dashbrd.courses_list:
+        displaytext = f"{course.label} du {course.startdate.date()} au " \
+                      f"{course.enddate.date()}, fichier {course.filename}"
+        form.courses.choices.append((str(course.id), displaytext))
+    for student in dashbrd.students_list:
+        displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
+                      f"formation {student.course.label})"
+        form.students.choices.append((str(student.id), displaytext))
+    form.startdate.data = dashbrd.startdate.date()
+    form.enddate.data = dashbrd.enddate.date()
+    #
+    graphpaths = list()
+    # prepare num graphs
+    numanswers = dashbrd.querynumanswers()
     curtime = datetime.now(tz=None)
     suffix = f"{curtime.hour}{curtime.minute}{curtime.second}"
-    for qindex, answerstat in enumerate(answerstats):
-        data = pd.DataFrame({"x": answerstat.grades})
-        title = Dashboard.wraptext(text=answerstat.questiontext, maxlen=50)
+    for qindex, numanswer in enumerate(numanswers):
+        data = pd.DataFrame({"x": numanswer.grades})
+        title = Dashboard.wraptext(text=numanswer.questiontext, maxlen=50)
         gradegraph = (ggplot(data) +
-                      coord_cartesian(xlim=(0, 6)) +
+                      coord_cartesian(xlim=(0, numanswer.max + 1)) +
                       geom_bar(aes(x="x")) +
                       labs(x="note", y="fréquence", title=title))
         graphname = f"graph{qindex}_{suffix}.jpg"
         gradegraph.save(filename=graphname, path=app.static_folder, width=5, height=5)
         graphpaths.append(graphname)
+    # preapre text graphs
+    ###
+    answersentiments = dashbrd.querytextanswers()
     # delete old graphs : cf https://stackabuse.com/python-list-files-in-a-directory/
     with os.scandir(app.static_folder) as entries:
         for entry in entries:
             if entry.is_file():
                 if entry.name.startswith("graph") and not entry.name.endswith(f"_{suffix}.jpg"):
                     os.remove(os.path.join(app.static_folder, entry.name))
-    return render_template("dashboard_analyze.html", dashboard=dashbrd, graphpaths=graphpaths)
+    return render_template("dashboard_analyze.html", form=form, graphpaths=graphpaths)
