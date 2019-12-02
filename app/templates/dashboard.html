@@ -6,11 +6,22 @@
 
 <h1>Sélections</h1>
 
+<p>Les sélections posent des conditions cumulatives (Formation F1 et dates entre D1 et D2 et étudiants E1 à En).</p>
+<p>En conséquence, ne pas sélectionner de formation ou d'étudiant signifie les sélectionner tous.</p>
+<p>L'intervalle de dates est appliqué à la date de dernière entrée connue d'un onglet afin de laisser
+    groupées toutes les réponses à un même formulaire.</p>
+
 <form action="" class="form" method="post" novalidate>
     {{ form.hidden_tag() }}
     {{ render_field(form.courses, class='form-control') }}
-    {{ render_field(form.startdate, class='form-control') }}
-    {{ render_field(form.enddate, class='form-control') }}
+    <div class="row">
+        <div class="col">
+            {{ render_field(form.startdate, class='form-control') }}
+        </div>
+        <div class="col">
+            {{ render_field(form.enddate, class='form-control') }}
+        </div>
+    </div>
     {{ render_field(form.students, class='form-control') }}
     {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>

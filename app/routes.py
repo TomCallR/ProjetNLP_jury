@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 
+import matplotlib
 import pandas as pd
 from flask import flash, render_template, url_for, redirect, session
 from plotnine import *
@@ -11,19 +12,9 @@ from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
     SheetsSelect, InitForm, DashboardForm
-import os
-from datetime import datetime, timedelta
 
-import pandas as pd
-from flask import flash, render_template, url_for, redirect, session
-from plotnine import *
-
-from app import app, db
-from app.apputils import Const, Params, DTime
-from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
-from app.database.models import Course, Student
-from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
-    SheetsSelect, InitForm, DashboardForm
+# https://stackoverflow.com/questions/27147300/matplotlib-tcl-asyncdelete-async-handler-deleted-by-the-wrong-thread
+matplotlib.use("Agg")
 
 
 @app.route("/")
@@ -191,8 +182,8 @@ def dashboard():
     form.courses.choices = []
     form.students.choices = []
     for course in db.session.query(Course).all():
-        displaytext = f"{course.label} du {course.startdate.date()} au " \
-                      f"{course.enddate.date()}, fichier {course.filename}"
+        displaytext = f"{course.label} du {DTime.formatdate(course.startdate)} au " \
+                      f"{DTime.formatdate(course.enddate)}, fichier {course.filename}"
         form.courses.choices.append((str(course.id), displaytext))
     for student in db.session.query(Student).all():
         displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
@@ -218,8 +209,8 @@ def dashboard_analyze():
     form.courses.choices = []
     form.students.choices = []
     for course in dashbrd.courses_list:
-        displaytext = f"{course.label} du {course.startdate.date()} au " \
-                      f"{course.enddate.date()}, fichier {course.filename}"
+        displaytext = f"{course.label} du {DTime.formatdate(course.startdate)} au " \
+                      f"{DTime.formatdate(course.enddate)}, fichier {course.filename}"
         form.courses.choices.append((str(course.id), displaytext))
     for student in dashbrd.students_list:
         displaytext = f"{student.firstname} {student.lastname} (email {student.email}, " \
@@ -227,9 +218,8 @@ def dashboard_analyze():
         form.students.choices.append((str(student.id), displaytext))
     form.startdate.data = dashbrd.startdate.date()
     form.enddate.data = dashbrd.enddate.date()
-    #
-    graphpaths = list()
     # prepare num graphs
+    numgraphpaths = list()
     numanswers = dashbrd.querynumanswers()
     curtime = datetime.now(tz=None)
     suffix = f"{curtime.hour}{curtime.minute}{curtime.second}"
@@ -240,16 +230,27 @@ def dashboard_analyze():
                       coord_cartesian(xlim=(0, numanswer.max + 1)) +
                       geom_bar(aes(x="x")) +
                       labs(x="note", y="fréquence", title=title))
-        graphname = f"graph{qindex}_{suffix}.jpg"
+        graphname = f"graph_n{qindex}_{suffix}.jpg"
         gradegraph.save(filename=graphname, path=app.static_folder, width=5, height=5)
-        graphpaths.append(graphname)
+        numgraphpaths.append(graphname)
     # preapre text graphs
-    ###
-    answersentiments = dashbrd.querytextanswers()
+    textgraphpaths = list()
+    textanswers = dashbrd.querytextanswers()
+    for qindex, textanswers in enumerate(textanswers):
+        data = pd.DataFrame({"x": textanswers.polarities, "y": textanswers.subjectivities})
+        title = Dashboard.wraptext(text=textanswers.questiontext, maxlen=50)
+        textgraph = (ggplot(data) +
+                     coord_cartesian(xlim=(-1, 1), ylim=(0, 1)) +
+                     geom_point(aes(x="x", y="y")) +
+                     labs(x="polarité", y="subjectivité", title=title))
+        graphname = f"graph_t{qindex}_{suffix}.jpg"
+        textgraph.save(filename=graphname, path=app.static_folder, width=5, height=5)
+        textgraphpaths.append(graphname)
     # delete old graphs : cf https://stackabuse.com/python-list-files-in-a-directory/
     with os.scandir(app.static_folder) as entries:
         for entry in entries:
             if entry.is_file():
-                if entry.name.startswith("graph") and not entry.name.endswith(f"_{suffix}.jpg"):
+                if entry.name.startswith("graph_") and not entry.name.endswith(f"_{suffix}.jpg"):
                     os.remove(os.path.join(app.static_folder, entry.name))
-    return render_template("dashboard_analyze.html", form=form, graphpaths=graphpaths)
+    return render_template("dashboard_analyze.html", form=form, numgraphpaths=numgraphpaths,
+                           textgraphpaths=textgraphpaths)

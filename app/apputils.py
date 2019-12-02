@@ -95,5 +95,6 @@ class NumAnswer:
 @dataclasses.dataclass
 class TextAnswer:
     questiontext: str
-    sentiment: List[Tuple[float]]
+    polarities: List[float]
+    subjectivities: List[float]
 

@@ -8,20 +8,34 @@
 
 <form action="" class="form" method="post" novalidate>
     {{ form.hidden_tag() }}
-    {{ render_field(form.courses, class='form-control') }}
-    {{ render_field(form.startdate, class='form-control') }}
-    {{ render_field(form.enddate, class='form-control') }}
-    {{ render_field(form.students, class='form-control') }}
+    <div class="row">
+        <div class="col">
+            {{ render_field(form.courses, class='form-control') }}
+        </div>
+        <div class="col">
+            {{ render_field(form.students, class='form-control') }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            {{ render_field(form.startdate, class='form-control') }}
+        </div>
+        <div class="col">
+            {{ render_field(form.enddate, class='form-control') }}
+        </div>
+    </div>
 </form>
 
 <h1>Analyse quantitative</h1>
 
-
-{% for graphpath in graphpaths %}
-    <img src="{{ url_for('static', filename=graphpath) }}"/>
+{% for graphpath in numgraphpaths %}
+<img src="{{ url_for('static', filename=graphpath) }}"/>
 {% endfor %}
 
 <h1>Analyse textuelle</h1>
 
+{% for graphpath in textgraphpaths %}
+<img src="{{ url_for('static', filename=graphpath) }}"/>
+{% endfor %}
 
 {% endblock %}

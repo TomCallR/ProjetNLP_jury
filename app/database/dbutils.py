@@ -512,13 +512,16 @@ class Dashboard:
         # see example https://github.com/sloria/textblob-fr
         tb = Blobber(pos_tagger=PatternTagger(), analyzer=PatternAnalyzer())
         for question in questions:
-            qvalues = list()
+            polvalues = list()
+            subvalues = list()
             texts = [answer.text for answer in answers.filter(Answer.question_id == question.id)]
             for text in texts:
-                qblob = tb(question.text)
+                qblob = tb(text)
                 qsentiment = qblob.sentiment
-                qvalues.append(qsentiment)
-            res.append(TextAnswer(questiontext=question.text, sentiment=qvalues))
+                polvalues.append(qsentiment[0])
+                subvalues.append(qsentiment[1])
+            res.append(TextAnswer(questiontext=question.text, polarities=polvalues,
+                                  subjectivities=subvalues))
         return res
 
     @classmethod
