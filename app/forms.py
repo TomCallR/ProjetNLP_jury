@@ -29,7 +29,7 @@ class CourseCreateForm(FlaskForm):
         validators=[DataRequired(message="Saisissez une date de fin")]
     )
     fileid = StringField(  # TODO allow null first
-        label="Id du fichier associé (réponses aux formulaires)",
+        label="Id du fichier associé (réponses aux questionnaires)",
         validators=[DataRequired(message="Saisissez l'id' du fichier")]
     )
     submit = SubmitField("Ajouter")

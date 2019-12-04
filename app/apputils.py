@@ -9,6 +9,7 @@ from flask import session
 class Const:
     DBTRUE = "Y"
     DBFALSE = "N"
+    DEFAULT_DAYS_TO_ENDDATE = 35
     DEFAULT_DAYS_UNCHANGED = 15
     MAX_DAYS_SHEET_UNCHANGED = "MAX_DAYS_SHEET_UNCHANGED"
     MAX_DAYS_TO_ENDDATE = "MAX_DAYS_TO_ENDDATE"
@@ -20,14 +21,6 @@ class Const:
 
 @dataclasses.dataclass
 class Params:
-
-    @classmethod
-    def getmindate(cls):
-        return date(year=2000, month=1, day=1)
-
-    @classmethod
-    def getmaxdate(cls):
-        return date(year=2100, month=1, day=1)
 
     @classmethod
     def getsessionvar(cls, name: str, default: any = None):

@@ -13,8 +13,14 @@
 <form class= "form" method="post" action="" novalidate>
     {{ form.hidden_tag() }}
     {{ render_field(form.label, class='form-control') }}
-    {{ render_field(form.startdate, class='form-control') }}
-    {{ render_field(form.enddate, class='form-control') }}
+    <div class="row">
+        <div class="col">
+            {{ render_field(form.startdate, class='form-control') }}
+        </div>
+        <div class="col">
+            {{ render_field(form.enddate, class='form-control') }}
+        </div>
+    </div>
     {{ render_field(form.fileid, class='form-control') }}
     {{ render_submit(form.submit, class='btn btn-warning btn-block') }}
 </form>

@@ -1,15 +1,14 @@
-{% from "macros.html" import render_field, render_submit %}
+{% from "macros.html" import render_check, render_field, render_submit %}
 
 {% extends "base.html" %}
 
 {% block content %}
 
-<h1>Liste des fichiers</h1>
+<h1>Liste des formations</h1>
 
-<p>Dans cette liste, seules sont sélectionnées les formations en cours après le
+<p>Dans cette liste, seules sont sélectionnées ({{ render_check(true) }}) les formations en cours après le
     <strong>{{ form.enddate.data.date().strftime("%d/%m/%Y") }}</strong> et qui ne débutent pas dans le futur.</p>
-<p>La date de dernière saisie est issue de la donnée horodateur la plus récente parmi les entrées
-    connues dans le fichier.</p>
+<p>La date de dernière saisie est la date (horodateur) de la plus récente des réponses connues du fichier.</p>
 <p>La date de dernière lecture est la plus récente date de lecture par ce programme des données du fichier.</p>
 
 <table class="table">
@@ -29,12 +28,7 @@
     <tbody>
     {% for course in courses %}
     <tr>
-<!--        {% if course.check %}-->
-<!--            <td><span class="glyphicon glyphicon-ok"></span></td>-->
-<!--        {% else %}-->
-<!--            <td><span class="glyphicon">&#xe014;</span></td>-->
-<!--        {% endif %}-->
-        <td>{{ course.check }}</td>
+        <td>{{ render_check(course.check) }}</td>
         <td>{{ course.course.id }}</td>
         <td>{{ course.course.label }}</td>
         <td>{{ course.course.startdate.date().strftime("%d/%m/%Y") }}</td>

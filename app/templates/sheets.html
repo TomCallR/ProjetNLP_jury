@@ -1,17 +1,19 @@
-{% from "macros.html" import render_field, render_submit %}
+{% from "macros.html" import render_check, render_field, render_submit %}
 
 {% extends "base.html" %}
 
 {% block content %}
 
-<h1>Liste des onglets connus en base de données</h1>
+<h1>Liste des questionnaires pour les formations sélectionnées</h1>
 
-<p>Chaque élément de la liste correspond à un onglet du fichier lié à la formation ou à une
-    formation sans onglet connu.</p>
-<p>Sont sélectionnés les onglets pour lesquels la date de dernière modification est
-    antérieure de <strong>{{ form.daysnochange.data }}</strong> jours au plus à la date de dernière lecture
-    (i.e. date de mise à jour).</p>
-<p>Tous les onglets nouveaux inconnus, non listés ici, seront lus et les réponses intégrées en base de données.</p>
+<p>Un questionnaire correspond à un onglet du fichier.</p>
+<p>Chaque élément de la liste correspond à un questionnaire ou à une
+    formation sans questionnaire connu.</p>
+<p>Sont sélectionnés ({{ render_check(true) }}) les questionnaires pour lesquels la date de dernière modification est
+    antérieure de <strong>{{ form.daysnochange.data }}</strong> jours au plus à la date de
+    dernière lecture (i.e. date de mise à jour).</p>
+<p>Tous les questionnaires nouveaux inconnus, non listés ici, seront lus et les réponses
+    intégrées en base de données.</p>
 
 <table class="table">
     <thead>
@@ -29,7 +31,7 @@
     <tbody>
     {% for gform in gforms %}
     <tr>
-        <td>{{ gform.check }}</td>
+        <td>{{ render_check(gform.check) }}</td>
         <td>{{ gform.course.id }}</td>
         <td>{{ gform.course.label }}</td>
         {% if gform.course.filename == "" %}
@@ -58,6 +60,6 @@
     {{ render_submit(form.submit, class="btn btn-warning btn-block") }}
 </form>
 
-<p>Cette page existe pour permettre de mettre à jour des onglets anciens si besoin.</p>
+<p>Cette étape existe pour permettre de mettre à jour des réponses à des questionnaires anciens.</p>
 
 {% endblock %}

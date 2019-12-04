@@ -86,12 +86,24 @@ solution : https://pythonise.com/series/learning-flask/flask-session-object
 * explorer client.py
 * explorer spreadsheet class : get spreadsheet id (exists !) dans gpread\models
 * Création de la base : elle peut exister mais le serveur n'être pas connecté
-* suppression en masse d'étudiants oou d'autres choses ? (pas sûr)
+* suppression en masse d'étudiants ou d'autres choses ? (pas sûr)
 * archivage
+* vue sur toutes les tables
 * add table responsive everywhere like courses.html
 * table Course : ajouter un champ URL du fichier à remplir à chaque création de formation
 (contrôle pour accepter le nom de fichier peut-être)
-* améliorer la gestion des listes de formation ou d'élèves dans Params pour le dashboard
+* cases check à améliorer
+* email unique : problème si étudiant a déjà suivi une autre formation
+* problème de supression d'une formation qui a déjà des réponses, ça pourrait être utile
+* chaque accès à BD dans un try catch
 
 ## Erreurs fréquentes :
 * mettre methods=["GET", "POST"]
+
+
+<!--<form>-->
+<!--    <div class="form-group">-->
+<!--        <label for="startdate">Date de début</label>-->
+<!--        <input type="date" class="form-control" id="startdate" placeholder="{{ form.startdate.data }}" readonly>-->
+<!--    </div>-->
+<!--</form>-->

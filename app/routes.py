@@ -46,7 +46,7 @@ def basesetup():
 
 @app.route("/courses", methods=["GET"])
 def courses():
-    courses_list = db.session.query(Course).all()
+    courses_list = db.session.query(Course).order_by(Course.startdate).all()
     return render_template("courses.html", courses=courses_list)
 
 
@@ -68,7 +68,7 @@ def course_create():
 
 @app.route("/course/delete", methods=["GET", "POST"])
 def course_delete():
-    courses_list = db.session.query(Course).all()
+    courses_list = db.session.query(Course).order_by(Course.startdate).all()
     form = CourseDeleteForm()
     form.course.choices = []
     for course in courses_list:
@@ -85,7 +85,9 @@ def course_delete():
 
 @app.route("/students", methods=["GET"])
 def students():
-    students_list = db.session.query(Student).all()
+    students_list = db.session.query(Student).filter(Student.id < 10).order_by(
+        Student.course_id, Student.lastname, Student.firstname
+    ).all()
     return render_template("students.html", students=students_list)
 
 
@@ -114,7 +116,7 @@ def student_create():
 @app.route("/student/delete", methods=["GET", "POST"])
 def student_delete():
     students_list = db.session.query(Student).order_by(
-        Student.course_id, Student.email
+        Student.course_id, Student.lastname, Student.firstname
     )
     form = StudentDeleteForm()
     form.student.choices = []
@@ -143,7 +145,8 @@ def spreadsheets():
             session[Const.MAX_DAYS_TO_ENDDATE] = newmaxdays
         return redirect(url_for("sheets"))
     else:
-        maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE, default=35)
+        maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE,
+                                       default=Const.DEFAULT_DAYS_TO_ENDDATE)
         minenddate = datetime.now() - timedelta(days=int(maxdays))
         form.enddate.data = minenddate
         okcourses = DbCourse.querycourses(minenddate=form.enddate.data)
@@ -154,12 +157,14 @@ def spreadsheets():
 def sheets():
     # TODO améliorer apparence de col check
     form = SheetsSelect()
-    maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE, default=35)
+    maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE,
+                                   default=Const.DEFAULT_DAYS_TO_ENDDATE)
     minenddate = datetime.now() - timedelta(days=int(maxdays))
     if form.validate_on_submit():
         # Saving number of days for friendiness, failure unimportant
         if form.daysnochange.data is None:
-            daysnochange = Params.getsessionvar(Const.MAX_DAYS_SHEET_UNCHANGED, Const.DEFAULT_DAYS_UNCHANGED)
+            daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED,
+                                                default=Const.DEFAULT_DAYS_UNCHANGED)
             flash("Erreur : Aucune durée choisie, utilisation d'une valeur par défaut")
         else:
             session[Const.MAX_DAYS_SHEET_UNCHANGED] = form.daysnochange.data
@@ -169,7 +174,8 @@ def sheets():
             flash("Attention : Des erreurs dans la mise à jour, certaines réponses non mises à jour")
         return redirect(url_for("sheets"))
     else:
-        daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED, default=Const.DEFAULT_DAYS_UNCHANGED)
+        daysnochange = Params.getsessionvar(name=Const.MAX_DAYS_SHEET_UNCHANGED,
+                                            default=Const.DEFAULT_DAYS_UNCHANGED)
         form.daysnochange.data = daysnochange
         oksheets = DbForm.queryforms(minenddate=minenddate, daysnochange=form.daysnochange.data)
     return render_template("sheets.html", gforms=oksheets, form=form)
@@ -204,8 +210,12 @@ def dashboard():
 @app.route("/dashboard/analyze")
 def dashboard_analyze():
     dashbrd = Dashboard.querycriteria()
-    # display choices in a form as a reminder
+    # display choices in a readonly form as a reminder
     form = DashboardForm()
+    form.courses.render_kw = {"readonly": True}
+    form.students.render_kw = {"readonly": True}
+    form.startdate.render_kw = {"readonly": True}
+    form.enddate.render_kw = {"readonly": True}
     form.courses.choices = []
     form.students.choices = []
     for course in dashbrd.courses_list:
@@ -252,5 +262,7 @@ def dashboard_analyze():
             if entry.is_file():
                 if entry.name.startswith("graph_") and not entry.name.endswith(f"_{suffix}.jpg"):
                     os.remove(os.path.join(app.static_folder, entry.name))
-    return render_template("dashboard_analyze.html", form=form, numgraphpaths=numgraphpaths,
+    return render_template("dashboard_analyze.html",
+                           form=form,
+                           numgraphpaths=numgraphpaths,
                            textgraphpaths=textgraphpaths)
