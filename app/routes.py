@@ -85,7 +85,7 @@ def course_delete():
 
 @app.route("/students", methods=["GET"])
 def students():
-    students_list = db.session.query(Student).filter(Student.id < 10).order_by(
+    students_list = db.session.query(Student).order_by(
         Student.course_id, Student.lastname, Student.firstname
     ).all()
     return render_template("students.html", students=students_list)

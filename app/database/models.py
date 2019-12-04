@@ -29,7 +29,7 @@ class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lastname = db.Column(db.String(80), nullable=False)
     firstname = db.Column(db.String(80), nullable=False)
-    email = db.Column(db.String(80), nullable=False, unique=True)
+    email = db.Column(db.String(80), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("Courses.id"), nullable=False)
 
     course = db.relationship("Course", back_populates="students")
@@ -67,7 +67,7 @@ class Question(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     isint = db.Column(db.String(1), nullable=False)      # Y for integer, N for text
-    text = db.Column(db.String(200), unique=True, nullable=False)
+    text = db.Column(db.String(200), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("Courses.id"), nullable=False)
 
     course = db.relationship("Course", back_populates="questions")

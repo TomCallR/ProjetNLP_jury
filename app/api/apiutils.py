@@ -29,6 +29,15 @@ class ApiAccess:
                 pass
         return res
 
+    @classmethod
+    def getmetadata(cls, spreadsheet: gspread.models.Spreadsheet):
+        metadata = None
+        try:
+            metadata = spreadsheet.fetch_sheet_metadata()
+        except PermissionError:
+            flash("Erreur : Accès refusé (avez-vous partagé le fichier avec le mail du credential ?)")
+        return metadata
+
     def initclient(self):
         projectpath, appdir = os.path.split(app.root_path)
         credfile = os.path.join(projectpath, self.CREDENTIALS_FILE)

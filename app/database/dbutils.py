@@ -50,10 +50,9 @@ class DbCourse:
     @classmethod
     def querycurrent(cls, minenddate: datetime) -> Query:
         courses = db.session.query(Course).filter(
-            Course.filename != "",
             Course.enddate > minenddate,
             Course.startdate <= datetime.now()
-        )
+        ).order_by(Course.startdate)
         return courses
 
     @classmethod
@@ -110,22 +109,21 @@ class DbCourse:
             # try to read file
             apiaccess = ApiAccess()
             spreadsheet = apiaccess.getfile(fileid)
-            if spreadsheet is None:
-                success = False
-            else:
+            success = (spreadsheet is not None)
+            metadata = None
+            if success:
+                # get metadata
+                metadata = apiaccess.getmetadata(spreadsheet)
+                success = (metadata is not None)
+            if success:
+                timezone = metadata["properties"]["timeZone"]
                 # insert new course
                 try:
-                    metadata = spreadsheet.fetch_sheet_metadata()
-                    timezone = metadata["properties"]["timeZone"]
                     newcourse = Course(label=label, startdate=startdate, enddate=enddate,
                                        fileid=fileid, filename=spreadsheet.title, filetz=timezone)
                     db.session.add(newcourse)
                     db.session.commit()
                     message = f"Succès : Formation {newcourse.label} ajoutée"
-                except PermissionError:
-                    db.session.rollback()
-                    success = False
-                    message = "Erreur : Accès refusé (avez-vous partagé le fichier avec le mail du credential ?)"
                 except Exception as ex:
                     db.session.rollback()
                     success = False
