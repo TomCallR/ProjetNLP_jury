@@ -1,9 +1,12 @@
 import dataclasses
 import math
+import os
 from datetime import date, datetime, timedelta
-from typing import List, Union, Tuple
+from typing import List, Union
 
 from flask import session
+
+from app import app
 
 
 class Const:
@@ -76,6 +79,18 @@ class DTime:
         return res
 
 
+class FileUtils:
+
+    # https://stackabuse.com/python-list-files-in-a-directory/
+    @classmethod
+    def deletefiles(cls, prefix: str, suffix: str):
+        with os.scandir(app.static_folder) as entries:
+            for entry in entries:
+                if entry.is_file():
+                    if entry.name.startswith(prefix) and not entry.name.endswith(suffix):
+                        os.remove(os.path.join(app.static_folder, entry.name))
+
+
 @dataclasses.dataclass
 class NumAnswer:
     questiontext: str
@@ -90,4 +105,3 @@ class TextAnswer:
     questiontext: str
     polarities: List[float]
     subjectivities: List[float]
-

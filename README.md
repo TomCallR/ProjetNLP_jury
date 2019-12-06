@@ -96,6 +96,7 @@ solution : https://pythonise.com/series/learning-flask/flask-session-object
 * email unique : problème si étudiant a déjà suivi une autre formation
 * problème de supression d'une formation qui a déjà des réponses, ça pourrait être utile
 * chaque accès à BD dans un try catch
+* TODO voir fichier config.py en faisant CTRL click sur from_object
 
 ## Erreurs fréquentes :
 * mettre methods=["GET", "POST"]
@@ -107,3 +108,5 @@ solution : https://pythonise.com/series/learning-flask/flask-session-object
 <!--        <input type="date" class="form-control" id="startdate" placeholder="{{ form.startdate.data }}" readonly>-->
 <!--    </div>-->
 <!--</form>-->
+
+# https://snipnyet.com/adierebel/59f46bff77da1511c3503532/multiple-checkbox-field-using-wtforms-with-flask-wtf/

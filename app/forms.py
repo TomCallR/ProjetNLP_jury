@@ -3,12 +3,6 @@ from wtforms import StringField, DateField, SubmitField, SelectField, IntegerFie
 from wtforms.validators import DataRequired, Email
 
 
-# # https://snipnyet.com/adierebel/59f46bff77da1511c3503532/multiple-checkbox-field-using-wtforms-with-flask-wtf/
-# class MultiCheckboxField(SelectMultipleField):
-#     widget = ListWidget(prefix_label=False)
-#     option_widget = CheckboxInput()
-
-
 class InitForm(FlaskForm):
     submit = SubmitField("Initialiser la base")
 
@@ -28,7 +22,7 @@ class CourseCreateForm(FlaskForm):
         # format='%d/%m/%Y', does not work
         validators=[DataRequired(message="Saisissez une date de fin")]
     )
-    fileid = StringField(  # TODO allow null first
+    fileid = StringField(
         label="Id du fichier associé (réponses aux questionnaires)",
         validators=[DataRequired(message="Saisissez l'id' du fichier")]
     )

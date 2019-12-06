@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta
 
 import matplotlib
@@ -7,7 +6,7 @@ from flask import flash, render_template, url_for, redirect, session
 from plotnine import *
 
 from app import app, db
-from app.apputils import Const, Params, DTime
+from app.apputils import Const, Params, DTime, FileUtils
 from app.database.dbutils import DbCourse, DbStudent, DbForm, Db, Dashboard
 from app.database.models import Course, Student
 from app.forms import CourseCreateForm, CourseDeleteForm, StudentCreateForm, StudentDeleteForm, SpreadsheetSelect, \
@@ -86,7 +85,7 @@ def course_delete():
 @app.route("/students", methods=["GET"])
 def students():
     students_list = db.session.query(Student).order_by(
-        Student.course_id, Student.lastname, Student.firstname
+        Student.course_id, Student.id
     ).all()
     return render_template("students.html", students=students_list)
 
@@ -134,7 +133,6 @@ def student_delete():
 
 @app.route("/spreadsheets", methods=["GET", "POST"])
 def spreadsheets():
-    # TODO améliorer apparence de col check
     form = SpreadsheetSelect()
     if form.validate_on_submit():
         if form.enddate.data is None:
@@ -155,7 +153,6 @@ def spreadsheets():
 
 @app.route("/sheets", methods=["GET", "POST"])
 def sheets():
-    # TODO améliorer apparence de col check
     form = SheetsSelect()
     maxdays = Params.getsessionvar(name=Const.MAX_DAYS_TO_ENDDATE,
                                    default=Const.DEFAULT_DAYS_TO_ENDDATE)
@@ -210,7 +207,7 @@ def dashboard():
 @app.route("/dashboard/analyze")
 def dashboard_analyze():
     dashbrd = Dashboard.querycriteria()
-    # display choices in a readonly form as a reminder
+    # display choices in readonly form fields as a reminder
     form = DashboardForm()
     form.courses.render_kw = {"readonly": True}
     form.students.render_kw = {"readonly": True}
@@ -256,12 +253,8 @@ def dashboard_analyze():
         graphname = f"graph_t{qindex}_{suffix}.jpg"
         textgraph.save(filename=graphname, path=app.static_folder, width=5, height=5)
         textgraphpaths.append(graphname)
-    # delete old graphs : cf https://stackabuse.com/python-list-files-in-a-directory/
-    with os.scandir(app.static_folder) as entries:
-        for entry in entries:
-            if entry.is_file():
-                if entry.name.startswith("graph_") and not entry.name.endswith(f"_{suffix}.jpg"):
-                    os.remove(os.path.join(app.static_folder, entry.name))
+    # delete old graphs
+    FileUtils.deletefiles(prefix="graph_", suffix=f"_{suffix}.jpg")
     return render_template("dashboard_analyze.html",
                            form=form,
                            numgraphpaths=numgraphpaths,

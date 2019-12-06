@@ -66,7 +66,7 @@ class Question(db.Model):
     __tablename__ = "Questions"
 
     id = db.Column(db.Integer, primary_key=True)
-    isint = db.Column(db.String(1), nullable=False)      # Y for integer, N for text
+    isint = db.Column(db.String(1), nullable=False)  # Y for integer, N for text
     text = db.Column(db.String(200), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("Courses.id"), nullable=False)
 
@@ -94,4 +94,3 @@ class Answer(db.Model):
 
     def __repr__(self):
         return f"<Answer {self.id} {self.timestamp} {self.text}>"
-

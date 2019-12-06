@@ -7,24 +7,13 @@ import gspread
 from flask import flash
 from sqlalchemy import func
 from sqlalchemy.orm import Query
-from textblob import Blobber
+from textblob import TextBlob
 from textblob_fr import PatternTagger, PatternAnalyzer
 
 from app import db
 from app.api.apiutils import ApiAccess
 from app.apputils import Const, NumAnswer, Params, DTime, TextAnswer
 from app.database.models import Course, Student, Form, Question, Answer
-
-
-class Db:
-
-    @classmethod
-    def exists(cls) -> bool:
-        try:
-            coursecount = db.session.query(Course).count()  # TODO à améliorer
-        except Exception as ex:
-            coursecount = -1
-        return coursecount >= 0
 
 
 @dataclasses.dataclass
@@ -45,42 +34,61 @@ class FormSummary:
     answerscount: int = 0
 
 
+class Db:
+
+    @classmethod
+    def exists(cls) -> bool:
+        try:
+            coursecount = db.session.query(Course).count()
+        except Exception as ex:
+            coursecount = -1
+        return coursecount >= 0
+
+
 class DbCourse:
 
     @classmethod
     def querycurrent(cls, minenddate: datetime) -> Query:
-        courses = db.session.query(Course).filter(
-            Course.enddate > minenddate,
-            Course.startdate <= datetime.now()
-        ).order_by(Course.startdate)
+        courses = None
+        try:
+            courses = db.session.query(Course).filter(
+                Course.enddate > minenddate,
+                Course.startdate <= datetime.now()
+            ).order_by(Course.startdate)
+        except Exception as ex:
+            flash(f"Erreur : {ex}")
         return courses
 
     @classmethod
     def querycourses(cls, minenddate: datetime) -> List[CourseSummary]:
+        res = []
         today = datetime.now()
         limitdate = DTime.min() if minenddate is None else minenddate
-        courses = db.session.query(Course).order_by(Course.id)
-        res = []
-        for course in courses:
-            check = (course.filename != "") and (course.enddate > limitdate) \
-                    and (course.startdate <= today)
-            formscount = len(course.forms)
-            lastentrydt = DTime.min()
-            lastreaddt = DTime.min()
-            for form in course.forms:
-                if form.lastentrydt and form.lastentrydt > lastentrydt:
-                    lastentrydt = form.lastentrydt
-                if form.lastreaddt and form.lastreaddt > lastreaddt:
-                    lastreaddt = form.lastreaddt
-            newcourse = CourseSummary(
-                check=check,
-                course=course,
-                formscount=formscount,
-                lastentrydt=lastentrydt,
-                lastreaddt=lastreaddt
-            )
-            res.append(newcourse)
-        res.sort(key=(lambda c: (1 - int(c.check), -c.formscount, c.course.id)))
+        courses = None
+        try:
+            courses = db.session.query(Course).order_by(Course.id)
+        except Exception as ex:
+            flash(f"Erreur : {ex}")
+        if courses is not None:
+            for course in courses:
+                check = (course.enddate > limitdate) and (course.startdate <= today)
+                formscount = len(course.forms)
+                lastentrydt = DTime.min()
+                lastreaddt = DTime.min()
+                for form in course.forms:
+                    if form.lastentrydt and form.lastentrydt > lastentrydt:
+                        lastentrydt = form.lastentrydt
+                    if form.lastreaddt and form.lastreaddt > lastreaddt:
+                        lastreaddt = form.lastreaddt
+                newcourse = CourseSummary(
+                    check=check,
+                    course=course,
+                    formscount=formscount,
+                    lastentrydt=lastentrydt,
+                    lastreaddt=lastreaddt
+                )
+                res.append(newcourse)
+            res.sort(key=(lambda c: (1 - int(c.check), -c.formscount, c.course.id)))
         return res
 
     @classmethod
@@ -137,14 +145,13 @@ class DbCourse:
         message = "Erreur : La formation n'est pas renseignée" if not success else ""
         coursetodel = None
         if success:
-            success = courseid.isnumeric()
-            message = "Erreur : L'id formation n'est pas numérique" if not success else ""
-        if success:
-            coursetodel = db.session.query(Course).get(int(courseid))
+            try:
+                coursetodel = db.session.query(Course).get(int(courseid))
+            except Exception as ex:
+                flash(f"Erreur : {ex}")
             success = (coursetodel is not None)
             message = "Erreur : Formation inexistante" if not success else ""
         if success:
-            print(coursetodel.students)
             success = ((coursetodel.students is None) or (len(coursetodel.students) == 0))
             message = "Erreur : Des étudiants sont rattachés à cette formation" if not success else ""
         if success:
@@ -181,11 +188,6 @@ class DbStudent:
         if success:
             success = ((course_id is not None) and (course_id != ""))
             message = "Erreur : La formation n'est pas renseignée" if not success else ""
-        # check neither label nor filename already exists in Courses
-        if success:
-            success = (Student.query.filter_by(email=email).count() == 0)
-            message = "Erreur : Un(e) étudiant(e) avec le même email existe déjà" if not success else ""
-        # TODO check mail coherent
         if success:
             try:
                 newstudent = Student(lastname=lastname, firstname=firstname, email=email, course_id=course_id)
@@ -230,38 +232,43 @@ class DbForm:
 
     @classmethod
     def queryforms(cls, minenddate: datetime, daysnochange: int) -> List:
-        limitdate = DTime.min() if minenddate is None else minenddate
-        courses = db.session.query(Course).filter(
-            Course.filename != "",
-            Course.enddate > limitdate,
-            Course.startdate <= datetime.now()
-        ).order_by(Course.id)
         res = []
-        for course in courses:
-            formscount = len(course.forms)
-            if formscount == 0:
-                newform = FormSummary(
-                    check=True,
-                    course=course,
-                    formscount=formscount
-                )
-                res.append(newform)
-            else:
-                for form in course.forms:
-                    check = (form.lastentrydt is None) or (form.lastreaddt is None)
-                    if not check:
-                        check = (DTime.timedelta2days(form.lastreaddt - form.lastentrydt) <= daysnochange)
-                    studentsdict = {answer.student_id: 1 for answer in form.answers}
-                    answerscount = len(studentsdict.keys())
+        limitdate = DTime.min() if minenddate is None else minenddate
+        courses = None
+        try:
+            courses = db.session.query(Course).filter(
+                Course.filename != "",
+                Course.enddate > limitdate,
+                Course.startdate <= datetime.now()
+            ).order_by(Course.id)
+        except Exception as ex:
+            flash(f"Erreur : {ex}")
+        if courses is not None:
+            for course in courses:
+                formscount = len(course.forms)
+                if formscount == 0:
                     newform = FormSummary(
-                        check=check,
+                        check=True,
                         course=course,
-                        formscount=formscount,
-                        form=form,
-                        answerscount=answerscount
+                        formscount=formscount
                     )
                     res.append(newform)
-        res.sort(key=(lambda f: (1 - int(f.check), -f.formscount, f.course.id)))  # Beware of form None
+                else:
+                    for form in course.forms:
+                        check = (form.lastentrydt is None) or (form.lastreaddt is None)
+                        if not check:
+                            check = (DTime.timedelta2days(form.lastreaddt - form.lastentrydt) <= daysnochange)
+                        studentsdict = {answer.student_id: 1 for answer in form.answers}
+                        answerscount = len(studentsdict.keys())
+                        newform = FormSummary(
+                            check=check,
+                            course=course,
+                            formscount=formscount,
+                            form=form,
+                            answerscount=answerscount
+                        )
+                        res.append(newform)
+            res.sort(key=(lambda f: (1 - int(f.check), -f.formscount, f.course.id)))
         return res
 
     @classmethod
@@ -288,11 +295,15 @@ class DbForm:
 
     @classmethod
     def updatedates(cls, gform: Form) -> bool:
-        lastentrydt = db.session.query(
-            func.max(Answer.timestamp).label("lastentrydt")
-        ).filter(
-            Answer.form_id == gform.id
-        ).group_by(Answer.form_id).first()
+        lastentrydt = None
+        try:
+            lastentrydt = db.session.query(
+                func.max(Answer.timestamp).label("lastentrydt")
+            ).filter(
+                Answer.form_id == gform.id
+            ).group_by(Answer.form_id).first()
+        except Exception as ex:
+            flash(f"Erreur : {ex}")
         if lastentrydt is not None:
             gform.lastentrydt = lastentrydt[0]
         gform.lastreaddt = datetime.now(tz=None)
@@ -508,14 +519,14 @@ class Dashboard:
         ).order_by(Answer.question_id)
         #
         # see example https://github.com/sloria/textblob-fr
-        tb = Blobber(pos_tagger=PatternTagger(), analyzer=PatternAnalyzer())
+
         for question in questions:
             polvalues = list()
             subvalues = list()
             texts = [answer.text for answer in answers.filter(Answer.question_id == question.id)]
             for text in texts:
-                qblob = tb(text)
-                qsentiment = qblob.sentiment
+                blob = TextBlob(text, pos_tagger=PatternTagger(), analyzer=PatternAnalyzer())
+                qsentiment = blob.sentiment
                 polvalues.append(qsentiment[0])
                 subvalues.append(qsentiment[1])
             res.append(TextAnswer(questiontext=question.text, polarities=polvalues,
